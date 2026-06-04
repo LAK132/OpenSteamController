@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=Open Steam Controller
+Comment=A tray application for monitoring and managing the new Steam Controller.
+Exec=open-steam-controller
+Icon=controller
+Terminal=false
+Categories=Game, Utility
+StartupNotify=false
+X-GNOME-Autostart-enabled=true

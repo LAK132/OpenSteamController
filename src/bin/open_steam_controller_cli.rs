@@ -1,0 +1,266 @@
+use std::{process::exit, time::Duration};
+
+use clap::{Arg, ArgAction, Command};
+use open_steam_controller::{
+    devices::{
+        connect_compatible_device, Controller, DeviceError, DeviceEvent, DeviceProperties,
+        PropertyDescriptorWrapper,
+    },
+    VERBOSE,
+};
+
+const SHOW_ALL_OPTIONS: bool = false;
+
+/// helper function to enable help messages
+fn device_supports<F>(device: &Result<Controller, DeviceError>, f: F) -> bool
+where
+    F: FnOnce(&DeviceProperties) -> bool,
+{
+    device
+        .as_ref()
+        .map(|controller| f(&controller.device_properties()))
+        .unwrap_or(false)
+}
+
+fn create_command(device: &Result<Controller, DeviceError>) -> Command {
+    Command::new(env!("CARGO_PKG_NAME"))
+        .version(env!("CARGO_PKG_VERSION"))
+        .disable_version_flag(false)
+        .disable_help_flag(true)
+        .author(env!("CARGO_PKG_AUTHORS"))
+        .about("A CLI application for monitoring and managing the new Steam Controller.")
+        .after_help("Help only lists commands supported by this controller.")
+        .arg(
+            Arg::new("automatic_shutdown")
+                .long("automatic_shutdown")
+                .required(false)
+                .help(
+                    "Set the delay in minutes after which the controller will automatically shutdown.\n0 will disable automatic shutdown.",
+                )
+                    .hide(!SHOW_ALL_OPTIONS
+                        && !device_supports(device, |d| d.can_set_automatic_shutdown))
+                .value_parser(clap::value_parser!(u8)),
+        )
+        .arg(
+            Arg::new("mute")
+                .long("mute")
+                .required(false)
+                .help("Mute or unmute the controller.")
+                .hide(!SHOW_ALL_OPTIONS
+                    && !device_supports(device, |d| d.can_set_mute))
+                .value_parser(clap::value_parser!(bool)),
+        )
+        .arg(
+            Arg::new("enable_side_tone")
+                .long("enable_side_tone")
+                .required(false)
+                .help("Enable or disable side tone.")
+                .hide(!SHOW_ALL_OPTIONS
+                    && !device_supports(device, |d| d.can_set_side_tone))
+                .value_parser(clap::value_parser!(bool)),
+        )
+        .arg(
+            Arg::new("side_tone_volume")
+                .long("side_tone_volume")
+                .required(false)
+                .help("Set the side tone volume.")
+                .hide(!SHOW_ALL_OPTIONS
+                    && !device_supports(device, |d| d.can_set_side_tone_volume))
+                .value_parser(clap::value_parser!(u8)),
+        )
+        .arg(
+            Arg::new("enable_voice_prompt")
+                .long("enable_voice_prompt")
+                .required(false)
+                .help("Enable voice prompt. This may not be supported on your device.")
+                .hide(!SHOW_ALL_OPTIONS
+                    && !device_supports(device, |d| d.can_set_voice_prompt))
+                .value_parser(clap::value_parser!(bool)),
+        )
+        .arg(
+            Arg::new("surround_sound")
+                .long("surround_sound")
+                .required(false)
+                .help("Enables surround sound. This may be on by default and cannot be changed on your device.")
+                .hide(!SHOW_ALL_OPTIONS
+                    && !device_supports(device, |d| d.can_set_surround_sound))
+                .value_parser(clap::value_parser!(bool)),
+        )
+        .arg(
+            Arg::new("mute_playback")
+                .long("mute_playback")
+                .required(false)
+                .help("Mute or unmute playback.")
+                .hide(!SHOW_ALL_OPTIONS
+                    && !device_supports(device, |d| d.can_set_silent_mode))
+                .value_parser(clap::value_parser!(bool)),
+        )
+        .arg(
+            Arg::new("activate_noise_gate")
+                .long("activate_noise_gate")
+                .required(false)
+                .help("Activates noise gate.")
+                .hide(!SHOW_ALL_OPTIONS
+                    && !device_supports(device, |d| d.can_set_silent_mode))
+                .value_parser(clap::value_parser!(bool)),
+        )
+        .arg(
+            Arg::new("verbose")
+                .long("verbose")
+                .short('v')
+                .action(ArgAction::SetTrue)
+                .required(false)
+                .help("Use verbose output"),
+        )
+        .arg(
+            Arg::new("help")
+                .long("help")
+                .short('h')
+                .action(ArgAction::SetTrue)
+                .help("Print help"),
+        )
+        .arg(
+            Arg::new("json")
+                .long("json")
+                .default_value("false")
+                .action(ArgAction::SetTrue)
+                .required(false)
+                .help("Use JSON output. Time is in seconds."),
+        )
+}
+
+fn main() {
+    #[cfg(target_os = "linux")]
+    {
+        use open_steam_controller::act_as_askpass_handler;
+        use open_steam_controller::prompt_user_for_udev_rule;
+
+        if let Ok(name) = std::env::current_exe() {
+            if let Some(name) = name.to_str() {
+                if let Ok(askpass) = std::env::var("SUDO_ASKPASS") {
+                    if name == askpass {
+                        act_as_askpass_handler();
+                    }
+                }
+            }
+        }
+        prompt_user_for_udev_rule();
+    }
+
+    let device = Err(DeviceError::NoDeviceFound());
+
+    // prep help without any controller specific options
+    let command = create_command(&device);
+    let matches = command.get_matches();
+    VERBOSE.set(matches.get_flag("verbose")).unwrap();
+
+    let device = connect_compatible_device();
+
+    // print help with controller specific options
+    if matches.get_flag("help") {
+        let mut command = create_command(&device);
+        command.print_long_help().unwrap();
+        exit(0);
+    }
+
+    let mut device = match device {
+        Ok(device) => device,
+        Err(e) => {
+            eprintln!("{e}");
+            std::process::exit(1)
+        }
+    };
+
+    let mut commands = Vec::new();
+    if let Some(delay) = matches.get_one::<u8>("automatic_shutdown") {
+        let delay = *delay as u64;
+        commands.push(DeviceEvent::AutomaticShutdownAfter(Duration::from_secs(
+            delay * 60u64,
+        )));
+    }
+
+    if let Some(mute) = matches.get_one::<bool>("mute") {
+        commands.push(DeviceEvent::Muted(*mute));
+    }
+
+    if let Some(enable) = matches.get_one::<bool>("enable_side_tone") {
+        commands.push(DeviceEvent::SideToneOn(*enable));
+    }
+
+    if let Some(volume) = matches.get_one::<u8>("side_tone_volume") {
+        commands.push(DeviceEvent::SideToneVolume(*volume));
+    }
+
+    if let Some(enable) = matches.get_one::<bool>("enable_voice_prompt") {
+        commands.push(DeviceEvent::VoicePrompt(*enable));
+    }
+
+    if let Some(surround_sound) = matches.get_one::<bool>("surround_sound") {
+        commands.push(DeviceEvent::SurroundSound(*surround_sound));
+    }
+
+    if let Some(mute_playback) = matches.get_one::<bool>("mute_playback") {
+        commands.push(DeviceEvent::Silent(*mute_playback));
+    }
+
+    if let Some(activate) = matches.get_one::<bool>("activate_noise_gate") {
+        commands.push(DeviceEvent::NoiseGateActive(*activate));
+    }
+
+    for command in commands {
+        if let Err(e) = device.try_apply(command) {
+            eprintln!("{e}");
+            std::process::exit(1);
+        }
+    }
+
+    std::thread::sleep(Duration::from_secs_f64(0.5));
+
+    // setting an option may cause a response form thecontroller
+    if device.allow_passive_refresh() {
+        if let Err(error) = device.passive_refresh_state() {
+            eprintln!("{error}");
+            std::process::exit(1);
+        };
+    }
+
+    if let Err(error) = device.active_refresh_state() {
+        eprintln!("{error}");
+        std::process::exit(1);
+    };
+
+    if let Some(output_json) = matches.get_one::<bool>("json") {
+        if *output_json {
+            let properties = device.device_properties();
+            let mut controller_info_json = "{\n  ".to_string();
+
+            let json_properties: Vec<String> = properties
+                .get_properties()
+                .iter()
+                .filter_map(|property| match property {
+                    PropertyDescriptorWrapper::Int(property_descriptor, _items) => {
+                        property_descriptor
+                            .data
+                            .map(|data| format!("\"{}\": {}", property_descriptor.name, data))
+                    }
+                    PropertyDescriptorWrapper::Bool(property_descriptor) => property_descriptor
+                        .data
+                        .map(|data| format!("\"{}\": {}", property_descriptor.name, data)),
+                    PropertyDescriptorWrapper::String(property_descriptor) => property_descriptor
+                        .data
+                        .as_ref()
+                        .map(|data| format!("\"{}\": \"{}\"", property_descriptor.name, data)),
+                })
+                .collect();
+
+            controller_info_json += &json_properties.join(",\n  ");
+
+            controller_info_json += "\n}";
+            println!("{}", controller_info_json);
+        } else {
+            println!("{}", device.device_properties());
+        }
+    } else {
+        println!("{}", device.device_properties());
+    }
+}
