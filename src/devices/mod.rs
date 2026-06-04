@@ -1,9 +1,6 @@
 pub mod steam_controller;
 
-use crate::{
-    debug_println,
-    devices::steam_controller::SteamController
-};
+use crate::{debug_println, devices::steam_controller::SteamController};
 use hidapi::{HidApi, HidDevice, HidError};
 use std::{
     collections::HashSet,
@@ -30,13 +27,11 @@ struct DeviceEntry {
     factory: DeviceFactory,
 }
 
-const DEVICE_REGISTER: &[DeviceEntry] = &[
-    DeviceEntry {
-        vendor_ids: &steam_controller::VENDOR_IDS,
-        product_ids: &steam_controller::PRODUCT_IDS,
-        factory: |s| Box::new(SteamController::new_from_state(s)),
-    },
-];
+const DEVICE_REGISTER: &[DeviceEntry] = &[DeviceEntry {
+    vendor_ids: &steam_controller::VENDOR_IDS,
+    product_ids: &steam_controller::PRODUCT_IDS,
+    factory: |s| Box::new(SteamController::new_from_state(s)),
+}];
 
 const RESPONSE_BUFFER_SIZE: usize = 256;
 pub const RESPONSE_DELAY: Duration = Duration::from_millis(50);
@@ -644,7 +639,8 @@ pub trait Device {
             self.active_refresh_state()?;
         }
 
-        self.get_device_state().write_hid_report(&SteamController::get_disable_lizard_mode_packet());
+        self.get_device_state()
+            .write_hid_report(&SteamController::get_disable_lizard_mode_packet());
 
         Ok(())
     }

@@ -12,7 +12,7 @@ const FEATURE_REPORT: u8 = 0x01;
 const SET_SETTING_CMD: u8 = 0x87;
 
 pub struct SteamController {
-    state: DeviceState
+    state: DeviceState,
 }
 
 impl SteamController {
