@@ -1,4 +1,9 @@
-use crate::debug_println;
+pub mod steam_controller;
+
+use crate::{
+    debug_println,
+    devices::steam_controller::SteamController
+};
 use hidapi::{HidApi, HidDevice, HidError};
 use std::{
     collections::HashSet,
@@ -25,7 +30,13 @@ struct DeviceEntry {
     factory: DeviceFactory,
 }
 
-const DEVICE_REGISTER: &[DeviceEntry] = &[];
+const DEVICE_REGISTER: &[DeviceEntry] = &[
+    DeviceEntry {
+        vendor_ids: &steam_controller::VENDOR_IDS,
+        product_ids: &steam_controller::PRODUCT_IDS,
+        factory: |s| Box::new(SteamController::new_from_state(s)),
+    },
+];
 
 const RESPONSE_BUFFER_SIZE: usize = 256;
 pub const RESPONSE_DELAY: Duration = Duration::from_millis(50);
@@ -281,7 +292,7 @@ impl DeviceState {
     /// Adapted from PR #20 by @navrozashvili
     /// Source: https://github.com/LennardKittner/HyperHeadset/pull/20
     pub fn write_hid_report(&self, packet: &[u8]) -> Result<(), HidError> {
-        match self.hid_device.write(packet) {
+        match self.hid_device.send_feature_report(packet) {
             Ok(_) => Ok(()),
             Err(write_err) => {
                 #[cfg(target_os = "windows")]
@@ -632,6 +643,8 @@ pub trait Device {
         if request_active_refresh {
             self.active_refresh_state()?;
         }
+
+        self.get_device_state().write_hid_report(&SteamController::get_disable_lizard_mode_packet());
 
         Ok(())
     }
