@@ -6,6 +6,8 @@ use std::{fs, io, process::Command, time::Duration};
 #[cfg(target_os = "linux")]
 use dialog::{Choice, DialogBox};
 
+pub mod virtual_controller;
+
 pub mod devices;
 
 pub static VERBOSE: OnceLock<bool> = OnceLock::new();
