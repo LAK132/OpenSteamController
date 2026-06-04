@@ -292,7 +292,7 @@ impl DeviceState {
     /// Adapted from PR #20 by @navrozashvili
     /// Source: https://github.com/LennardKittner/HyperHeadset/pull/20
     pub fn write_hid_report(&self, packet: &[u8]) -> Result<(), HidError> {
-        match self.hid_device.write(packet) {
+        match self.hid_device.send_feature_report(packet) {
             Ok(_) => Ok(()),
             Err(write_err) => {
                 #[cfg(target_os = "windows")]
@@ -643,6 +643,8 @@ pub trait Device {
         if request_active_refresh {
             self.active_refresh_state()?;
         }
+
+        self.get_device_state().write_hid_report(&SteamController::get_disable_lizard_mode_packet());
 
         Ok(())
     }

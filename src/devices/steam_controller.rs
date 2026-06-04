@@ -6,14 +6,28 @@ pub const PRODUCT_IDS: [u16; 2] = [
     0x1304, // connection via puck
 ];
 
+const FEATURE_REPORT: u8 = 0x01;
+const SET_SETTING_CMD: u8 = 0x87;
+
 pub struct SteamController {
     state: DeviceState
 }
 
 impl SteamController {
+    pub fn get_disable_lizard_mode_packet() -> Vec<u8> {
+        Self::decorate_packet(SET_SETTING_CMD, vec![0x09, 0x00, 0x00])
+    }
+
     pub fn new_from_state(state: DeviceState) -> Self {
         state.write_hid_report(&SteamController::get_disable_lizard_mode_packet());
         Self { state }
+    }
+
+    fn decorate_packet(command: u8, mut payload: Vec<u8>) -> Vec<u8> {
+        let mut packet = vec![FEATURE_REPORT, command, payload.len() as u8];
+        packet.append(&mut payload);
+        packet.append(&mut vec![0x00; 64 - packet.len()]);
+        packet
     }
 }
 
