@@ -1,7 +1,10 @@
 use crate::devices::{Device, DeviceEvent, DeviceState};
 
 pub const VENDOR_IDS: [u16; 1] = [0x28de];
-pub const PRODUCT_IDS: [u16; 1] = [0x1304];
+pub const PRODUCT_IDS: [u16; 2] = [
+    0x1302, // direct connection to controller
+    0x1304, // connection via puck
+];
 
 pub struct SteamController {
     state: DeviceState
@@ -9,6 +12,7 @@ pub struct SteamController {
 
 impl SteamController {
     pub fn new_from_state(state: DeviceState) -> Self {
+        state.write_hid_report(&SteamController::get_disable_lizard_mode_packet());
         Self { state }
     }
 }
