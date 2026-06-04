@@ -6,7 +6,9 @@ pub const PRODUCT_IDS: [u16; 2] = [
     0x1304, // connection via puck
 ];
 
+/// Flag to start a feature report
 const FEATURE_REPORT: u8 = 0x01;
+/// Command to set a setting
 const SET_SETTING_CMD: u8 = 0x87;
 
 pub struct SteamController {
@@ -14,15 +16,20 @@ pub struct SteamController {
 }
 
 impl SteamController {
+    /// Returns the complete packet to disable "lizard mode"
+    /// Has to be sent frequently to keep it disabled
     pub fn get_disable_lizard_mode_packet() -> Vec<u8> {
         Self::decorate_packet(SET_SETTING_CMD, vec![0x09, 0x00, 0x00])
     }
 
+    /// Initially disables the "lizard mode" and constructs the controller
     pub fn new_from_state(state: DeviceState) -> Self {
         state.write_hid_report(&SteamController::get_disable_lizard_mode_packet());
         Self { state }
     }
 
+    /// Builds a packet based on a given command and a payload
+    /// Basic structure: feature report flag, command, size of payload, payload
     fn decorate_packet(command: u8, mut payload: Vec<u8>) -> Vec<u8> {
         let mut packet = vec![FEATURE_REPORT, command, payload.len() as u8];
         packet.append(&mut payload);
