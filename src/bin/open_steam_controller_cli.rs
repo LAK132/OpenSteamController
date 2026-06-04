@@ -3,15 +3,17 @@ use std::{process::exit, time::Duration};
 use clap::{Arg, ArgAction, Command};
 use open_steam_controller::{
     devices::{
-        connect_compatible_device, Controller, DeviceError, DeviceEvent, DeviceProperties,
+        connect_compatible_device, Controller, DeviceError, DeviceProperties,
         PropertyDescriptorWrapper,
     },
     VERBOSE,
 };
 
+#[allow(dead_code)]
 const SHOW_ALL_OPTIONS: bool = false;
 
 /// helper function to enable help messages
+#[allow(dead_code)]
 fn device_supports<F>(device: &Result<Controller, DeviceError>, f: F) -> bool
 where
     F: FnOnce(&DeviceProperties) -> bool,
@@ -22,7 +24,7 @@ where
         .unwrap_or(false)
 }
 
-fn create_command(device: &Result<Controller, DeviceError>) -> Command {
+fn create_command(_device: &Result<Controller, DeviceError>) -> Command {
     Command::new(env!("CARGO_PKG_NAME"))
         .version(env!("CARGO_PKG_VERSION"))
         .disable_version_flag(false)
@@ -30,80 +32,6 @@ fn create_command(device: &Result<Controller, DeviceError>) -> Command {
         .author(env!("CARGO_PKG_AUTHORS"))
         .about("A CLI application for monitoring and managing the new Steam Controller.")
         .after_help("Help only lists commands supported by this controller.")
-        .arg(
-            Arg::new("automatic_shutdown")
-                .long("automatic_shutdown")
-                .required(false)
-                .help(
-                    "Set the delay in minutes after which the controller will automatically shutdown.\n0 will disable automatic shutdown.",
-                )
-                    .hide(!SHOW_ALL_OPTIONS
-                        && !device_supports(device, |d| d.can_set_automatic_shutdown))
-                .value_parser(clap::value_parser!(u8)),
-        )
-        .arg(
-            Arg::new("mute")
-                .long("mute")
-                .required(false)
-                .help("Mute or unmute the controller.")
-                .hide(!SHOW_ALL_OPTIONS
-                    && !device_supports(device, |d| d.can_set_mute))
-                .value_parser(clap::value_parser!(bool)),
-        )
-        .arg(
-            Arg::new("enable_side_tone")
-                .long("enable_side_tone")
-                .required(false)
-                .help("Enable or disable side tone.")
-                .hide(!SHOW_ALL_OPTIONS
-                    && !device_supports(device, |d| d.can_set_side_tone))
-                .value_parser(clap::value_parser!(bool)),
-        )
-        .arg(
-            Arg::new("side_tone_volume")
-                .long("side_tone_volume")
-                .required(false)
-                .help("Set the side tone volume.")
-                .hide(!SHOW_ALL_OPTIONS
-                    && !device_supports(device, |d| d.can_set_side_tone_volume))
-                .value_parser(clap::value_parser!(u8)),
-        )
-        .arg(
-            Arg::new("enable_voice_prompt")
-                .long("enable_voice_prompt")
-                .required(false)
-                .help("Enable voice prompt. This may not be supported on your device.")
-                .hide(!SHOW_ALL_OPTIONS
-                    && !device_supports(device, |d| d.can_set_voice_prompt))
-                .value_parser(clap::value_parser!(bool)),
-        )
-        .arg(
-            Arg::new("surround_sound")
-                .long("surround_sound")
-                .required(false)
-                .help("Enables surround sound. This may be on by default and cannot be changed on your device.")
-                .hide(!SHOW_ALL_OPTIONS
-                    && !device_supports(device, |d| d.can_set_surround_sound))
-                .value_parser(clap::value_parser!(bool)),
-        )
-        .arg(
-            Arg::new("mute_playback")
-                .long("mute_playback")
-                .required(false)
-                .help("Mute or unmute playback.")
-                .hide(!SHOW_ALL_OPTIONS
-                    && !device_supports(device, |d| d.can_set_silent_mode))
-                .value_parser(clap::value_parser!(bool)),
-        )
-        .arg(
-            Arg::new("activate_noise_gate")
-                .long("activate_noise_gate")
-                .required(false)
-                .help("Activates noise gate.")
-                .hide(!SHOW_ALL_OPTIONS
-                    && !device_supports(device, |d| d.can_set_silent_mode))
-                .value_parser(clap::value_parser!(bool)),
-        )
         .arg(
             Arg::new("verbose")
                 .long("verbose")
@@ -171,41 +99,7 @@ fn main() {
         }
     };
 
-    let mut commands = Vec::new();
-    if let Some(delay) = matches.get_one::<u8>("automatic_shutdown") {
-        let delay = *delay as u64;
-        commands.push(DeviceEvent::AutomaticShutdownAfter(Duration::from_secs(
-            delay * 60u64,
-        )));
-    }
-
-    if let Some(mute) = matches.get_one::<bool>("mute") {
-        commands.push(DeviceEvent::Muted(*mute));
-    }
-
-    if let Some(enable) = matches.get_one::<bool>("enable_side_tone") {
-        commands.push(DeviceEvent::SideToneOn(*enable));
-    }
-
-    if let Some(volume) = matches.get_one::<u8>("side_tone_volume") {
-        commands.push(DeviceEvent::SideToneVolume(*volume));
-    }
-
-    if let Some(enable) = matches.get_one::<bool>("enable_voice_prompt") {
-        commands.push(DeviceEvent::VoicePrompt(*enable));
-    }
-
-    if let Some(surround_sound) = matches.get_one::<bool>("surround_sound") {
-        commands.push(DeviceEvent::SurroundSound(*surround_sound));
-    }
-
-    if let Some(mute_playback) = matches.get_one::<bool>("mute_playback") {
-        commands.push(DeviceEvent::Silent(*mute_playback));
-    }
-
-    if let Some(activate) = matches.get_one::<bool>("activate_noise_gate") {
-        commands.push(DeviceEvent::NoiseGateActive(*activate));
-    }
+    let commands = Vec::new();
 
     for command in commands {
         if let Err(e) = device.try_apply(command) {

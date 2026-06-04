@@ -14,7 +14,7 @@ pub struct TrayHandler {
 
 const NO_COMPATIBLE_DEVICE: &str = "No compatible device found.\nIs the dongle plugged in?\nIf you are using Linux did you\nadd the Udev rules?";
 const CONTROLLER_NOT_CONNECTED: &str = "Controller is not connected";
-const ICON_NAME: &str = "controller";
+const ICON_NAME: &str = "input-gaming";
 
 impl TrayHandler {
     pub fn new(tray: StatusTray) -> Self {
