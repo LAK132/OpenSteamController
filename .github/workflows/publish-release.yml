@@ -18,14 +18,14 @@ jobs:
         run: sudo apt update && sudo apt install -y libdbus-1-dev libhidapi-dev libusb-1.0-0-dev libudev-dev
       - name: Build release binaries
         run: |
-          cargo build --release --bin open-steam-controller_cli
+          cargo build --release --bin open-steam-controller-cli
           cargo build --release --bin open-steam-controller
       - name: Create zip
         run: |
           mkdir -p dist
           cp target/release/open-steam-controller dist/
-          cp target/release/open-steam-controller_cli dist/
-          cd dist && zip open-steam-controller_Linux.zip open-steam-controller open-steam-controller_cli
+          cp target/release/open-steam-controller-cli dist/
+          cd dist && zip open-steam-controller_Linux.zip open-steam-controller open-steam-controller-cli
       - name: Upload zip artifact
         uses: actions/upload-artifact@v4
         with:
@@ -40,14 +40,14 @@ jobs:
           submodules: recursive
       - name: Build release binaries
         run: |
-          cargo build --release --bin open-steam-controller_cli
+          cargo build --release --bin open-steam-controller-cli
           cargo build --release --bin open-steam-controller
       - name: Create zip
         run: |
           mkdir -p dist
           cp target/release/open-steam-controller dist/
-          cp target/release/open-steam-controller_cli dist/
-          cd dist && zip open-steam-controller_MacOS.zip open-steam-controller open-steam-controller_cli
+          cp target/release/open-steam-controller-cli dist/
+          cd dist && zip open-steam-controller_MacOS.zip open-steam-controller open-steam-controller-cli
       - name: Upload zip artifact
         uses: actions/upload-artifact@v4
         with: 
@@ -62,14 +62,14 @@ jobs:
           submodules: recursive
       - name: Build release binaries
         run: |
-          cargo build --release --bin open-steam-controller_cli
+          cargo build --release --bin open-steam-controller-cli
           cargo build --release --bin open-steam-controller
       - name: Create zip
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Force dist
           Copy-Item target/release/open-steam-controller.exe dist/
-          Copy-Item target/release/open-steam-controller_cli.exe dist/
+          Copy-Item target/release/open-steam-controller-cli.exe dist/
           Compress-Archive -Path dist/* -DestinationPath dist/open-steam-controller_Windows.zip
       - name: Upload zip artifact
         uses: actions/upload-artifact@v4
