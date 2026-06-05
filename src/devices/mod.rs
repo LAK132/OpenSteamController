@@ -1,6 +1,8 @@
 pub mod steam_controller;
 
-use crate::{debug_println, devices::steam_controller::SteamController};
+use crate::{
+    debug_println, devices::steam_controller::SteamController, virtual_controller::ControllerInput,
+};
 use hidapi::{HidApi, HidDevice, HidError};
 use std::{
     collections::HashSet,
@@ -47,13 +49,13 @@ impl Controller {
         }
     }
 
-    pub fn active_refresh_state(&mut self) -> Result<(), DeviceError> {
+    pub fn active_refresh_state(&mut self) -> Result<Vec<ControllerInput>, DeviceError> {
         match self {
             Controller::Hid(device) => device.active_refresh_state(),
         }
     }
 
-    pub fn passive_refresh_state(&mut self) -> Result<(), DeviceError> {
+    pub fn passive_refresh_state(&mut self) -> Result<Vec<ControllerInput>, DeviceError> {
         match self {
             Controller::Hid(device) => device.passive_refresh_state(),
         }
@@ -319,6 +321,7 @@ impl DeviceState {
             DeviceEvent::WirelessConnected(connected) => {
                 self.device_properties.connected = Some(*connected)
             }
+            DeviceEvent::ButtonPressed(_controller_input) => todo!(),
         };
     }
 }
@@ -497,6 +500,7 @@ pub enum DeviceEvent {
     BatterLevel(u8),
     Charging(ChargingStatus),
     WirelessConnected(bool),
+    ButtonPressed(ControllerInput),
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
@@ -574,9 +578,10 @@ pub trait Device {
     }
 
     /// Refreshes the state by querying all available information
-    fn active_refresh_state(&mut self) -> Result<(), DeviceError> {
+    fn active_refresh_state(&mut self) -> Result<Vec<ControllerInput>, DeviceError> {
         let packets = self.get_query_packets();
 
+        let mut pressed_buttons: Vec<ControllerInput> = vec![];
         let mut responded = false;
         for packet in packets.into_iter() {
             self.prepare_write();
@@ -585,7 +590,10 @@ pub trait Device {
             std::thread::sleep(RESPONSE_DELAY);
             if let Some(events) = self.wait_for_updates(Duration::from_secs(1)) {
                 for event in events {
-                    self.get_device_state_mut().update_self_with_event(&event);
+                    match event {
+                        DeviceEvent::ButtonPressed(button) => pressed_buttons.push(button),
+                        _ => self.get_device_state_mut().update_self_with_event(&event),
+                    }
                 }
                 responded = true;
             }
@@ -598,7 +606,7 @@ pub trait Device {
         }
 
         if responded {
-            Ok(())
+            Ok(pressed_buttons)
         } else {
             Err(DeviceError::NoResponse())
         }
@@ -606,7 +614,8 @@ pub trait Device {
 
     /// Refreshes the state by listening for events
     /// Only the battery level is actively queried because it is not communicated by the device on its own
-    fn passive_refresh_state(&mut self) -> Result<(), DeviceError> {
+    fn passive_refresh_state(&mut self) -> Result<Vec<ControllerInput>, DeviceError> {
+        let mut pressed_buttons = vec![];
         let mut request_active_refresh = false;
         if self.allow_passive_refresh() {
             if let Some(events) = self.wait_for_updates(PASSIVE_REFRESH_TIME_OUT) {
@@ -616,7 +625,10 @@ pub trait Device {
                     if matches!(event, DeviceEvent::WirelessConnected(true)) {
                         request_active_refresh = true;
                     }
-                    self.get_device_state_mut().update_self_with_event(&event);
+                    match event {
+                        DeviceEvent::ButtonPressed(button) => pressed_buttons.push(button),
+                        _ => self.get_device_state_mut().update_self_with_event(&event),
+                    }
                 }
             }
         }
@@ -631,7 +643,10 @@ pub trait Device {
                     if matches!(event, DeviceEvent::WirelessConnected(true)) {
                         request_active_refresh = true;
                     }
-                    self.get_device_state_mut().update_self_with_event(&event);
+                    match event {
+                        DeviceEvent::ButtonPressed(button) => pressed_buttons.push(button),
+                        _ => self.get_device_state_mut().update_self_with_event(&event),
+                    }
                 }
             }
         }
@@ -642,7 +657,7 @@ pub trait Device {
         self.get_device_state()
             .write_hid_report(&SteamController::get_disable_lizard_mode_packet());
 
-        Ok(())
+        Ok(pressed_buttons)
     }
 
     fn try_apply(&mut self, _command: DeviceEvent) -> Result<(), String> {

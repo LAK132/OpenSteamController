@@ -198,7 +198,7 @@ fn main() {
             } else {
                 device.passive_refresh_state()
             } {
-                Ok(()) => (),
+                Ok(pressed_buttons) => println!("Run loop buttons: {pressed_buttons:?}"),
                 Err(error) => {
                     eprintln!("{error}");
                     tray_handler.update(&device.device_properties());
