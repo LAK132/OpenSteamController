@@ -24,16 +24,16 @@ pub struct SteamController {
 bitflags! {
     #[derive(Debug, PartialEq)]
     struct Button: u32 {
-        const A                 = 1 << 00;
-        const B                 = 1 << 01;
-        const X                 = 1 << 02;
-        const Y                 = 1 << 03;
-        const Menu              = 1 << 04;
-        const ThumbRight        = 1 << 05;
-        const Select            = 1 << 06;
-        const R4                = 1 << 07;
-        const R5                = 1 << 08;
-        const R1                = 1 << 09;
+        const A                 = 1 <<  0;
+        const B                 = 1 <<  1;
+        const X                 = 1 <<  2;
+        const Y                 = 1 <<  3;
+        const Menu              = 1 <<  4;
+        const ThumbRight        = 1 <<  5;
+        const Select            = 1 <<  6;
+        const R4                = 1 <<  7;
+        const R5                = 1 <<  8;
+        const R1                = 1 <<  9;
         const DpadDown          = 1 << 10;
         const DpadRight         = 1 << 11;
         const DpadLeft          = 1 << 12;
@@ -144,7 +144,7 @@ impl Device for SteamController {
                 .collect();
         }
 
-        if events.len() == 0 {
+        if events.is_empty() {
             None
         } else {
             Some(events)
