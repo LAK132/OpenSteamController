@@ -138,10 +138,10 @@ impl Device for SteamController {
         let mut events = vec![];
         if response[0] == RESPONSE_BUTTON_EVENT {
             let button_bits = u32::from_le_bytes(response[2..6].try_into().unwrap());
-            Self::get_buttons(button_bits)
+            events = Self::get_buttons(button_bits)
                 .iter()
                 .map(|controller_input| DeviceEvent::ButtonPressed(*controller_input))
-                .for_each(|event| events.push(event));
+                .collect();
         }
 
         if events.len() == 0 {
