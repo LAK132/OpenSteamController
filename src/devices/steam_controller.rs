@@ -123,15 +123,15 @@ impl SteamController {
 
 impl Device for SteamController {
     fn get_charging_packet(&self) -> Option<Vec<u8>> {
-        unimplemented!();
+        None
     }
 
     fn get_battery_packet(&self) -> Option<Vec<u8>> {
-        unimplemented!();
+        None
     }
 
     fn get_wireless_connected_status_packet(&self) -> Option<Vec<u8>> {
-        unimplemented!();
+        None
     }
 
     fn get_event_from_device_response(&self, response: &[u8]) -> Option<Vec<DeviceEvent>> {
