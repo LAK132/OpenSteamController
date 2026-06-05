@@ -321,7 +321,9 @@ impl DeviceState {
             DeviceEvent::WirelessConnected(connected) => {
                 self.device_properties.connected = Some(*connected)
             }
-            DeviceEvent::ButtonPressed(_controller_input) => todo!(),
+            DeviceEvent::ButtonPressed(_controller_input) => {
+                panic!("ButtonPressed should be handled in the refreshes")
+            }
         };
     }
 }
