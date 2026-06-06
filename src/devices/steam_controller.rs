@@ -208,7 +208,6 @@ impl SteamController {
 
     /// Converts four bytes of data into controller input events for the left and right trackpad
     fn handle_trackpads(response: [u8; 12]) -> Vec<DeviceEvent> {
-        println!("{response:?}");
         let (left_x, left_y, left_force) =
             Self::convert_analog_3d(response[0..6].try_into().unwrap());
         let (right_x, right_y, right_force) =
