@@ -98,6 +98,10 @@ fn connect_hid_device() -> Result<Box<dyn Device>, DeviceError> {
     {
         let state = states
             .into_iter()
+            // every 3rd device is a new controller
+            // 0-2 is first
+            // 3-5 is second...
+            //.nth(0)
             .next()
             .ok_or(DeviceError::NoDeviceFound())?;
         eprintln!(
