@@ -119,6 +119,7 @@ fn main() {
 fn main() {
     use clap::ArgAction;
     use clap::{Arg, Command};
+    use open_steam_controller::virtual_controller::{AbstractVirtualController, VirtualController};
     use open_steam_controller::VERBOSE;
     use std::sync::mpsc;
     use std::time::Duration;
@@ -178,6 +179,7 @@ fn main() {
     let refresh_interval = Duration::from_secs(refresh_interval);
     let (tx, rx) = mpsc::channel();
     let tray_handler = TrayHandler::new(StatusTray::new(tx, monochrome_icons));
+    let mut virt_controller = VirtualController::new().unwrap();
     loop {
         let mut device = loop {
             match connect_compatible_device() {
@@ -198,7 +200,11 @@ fn main() {
             } else {
                 device.passive_refresh_state()
             } {
-                Ok(pressed_buttons) => println!("Run loop buttons: {pressed_buttons:?}"),
+                Ok(input_events) => {
+                    for input_event in input_events {
+                        virt_controller.send_input(input_event);
+                    }
+                }
                 Err(error) => {
                     eprintln!("{error}");
                     tray_handler.update(&device.device_properties());

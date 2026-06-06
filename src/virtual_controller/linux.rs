@@ -6,6 +6,12 @@ use uinput::event::absolute::Position;
 use uinput::event::Controller;
 use uinput::{event::controller, Device, Result};
 
+/*
+ * TODO X/Y and A/B are swapped
+ * Bumpers and DPAD don't work
+ * Menu/Option isn't Mapped
+ */
+
 /// Xbox series x
 const PRODUCT_ID: u16 = 0x0b12;
 /// Microsoft

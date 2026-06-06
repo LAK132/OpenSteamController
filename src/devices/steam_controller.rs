@@ -1,3 +1,5 @@
+use std::ops::Range;
+
 use crate::{
     devices::{Device, DeviceEvent, DeviceState},
     virtual_controller::ControllerInput,
@@ -15,14 +17,22 @@ const FEATURE_REPORT: u8 = 0x01;
 /// Command to set a setting
 const SET_SETTING_CMD: u8 = 0x87;
 /// Response prefix for button event
-const RESPONSE_BUTTON_EVENT: u8 = 0x45;
+const RESPONSE_INPUT_EVENT: u8 = 0x45;
+/// Range in the response containing the button bits
+const BUTTON_LOCATION: Range<usize> = 2..6;
+/// Range in the response containing the triggers
+const TRIGGER_LOCATION: Range<usize> = 6..10;
+/// Range in the response containing the left yoystick
+const JOYSTICK_LOCATION: Range<usize> = 10..18;
+/// Range in the response containing the trackpads (x y pressure)
+const TRACKPAD_LOCATION: Range<usize> = 18..30;
 
 pub struct SteamController {
     state: DeviceState,
 }
 
 bitflags! {
-    #[derive(Debug, PartialEq)]
+    #[derive(Clone, Copy, Debug, PartialEq)]
     struct Button: u32 {
         const A                 = 1 <<  0;
         const B                 = 1 <<  1;
@@ -79,41 +89,66 @@ impl SteamController {
         packet
     }
 
-    fn get_buttons(buttons_bits: u32) -> Vec<ControllerInput> {
-        Button::from_bits_truncate(buttons_bits)
+    fn handle_buttons(&self, response: [u8; 4]) -> Vec<DeviceEvent> {
+        let button_bitmap = Button::from_bits_truncate(u32::from_le_bytes(response));
+        let previous_bitmap = Button::from_bits_truncate(
+            self.get_device_state()
+                .device_properties
+                .previous_button_bitmap as u32,
+        );
+        let changed_buttons = button_bitmap.symmetric_difference(previous_bitmap);
+        if !changed_buttons.is_empty() {
+            let mut result = Self::get_buttons(&changed_buttons, &button_bitmap)
+                .iter()
+                .map(|controller_input| DeviceEvent::ButtonPressed(*controller_input))
+                .collect::<Vec<DeviceEvent>>();
+            println!("update bitmap");
+            result.push(DeviceEvent::UpdateBitmap(button_bitmap.bits() as u64));
+            result
+        } else {
+            vec![]
+        }
+    }
+
+    /// Converts a bitmap of which buttons changed state and a bitmap of the current button states
+    /// into a Vec of ControllerInput filled with digital ControllerInput, either pressed or
+    /// released
+    fn get_buttons(changes: &Button, states: &Button) -> Vec<ControllerInput> {
+        println!("Changes: {:0>32b}", changes.bits());
+        changes
             .iter()
             .map(|button| {
                 bitflags_match!(button, {
-                    Button::A => ControllerInput::A,
-                    Button::B => ControllerInput::B,
-                    Button::X => ControllerInput::X,
-                    Button::Y => ControllerInput::Y,
-                    Button::Menu => ControllerInput::Menu,
-                    Button::ThumbRight => ControllerInput::RightThumb,
-                    Button::Select => ControllerInput::Select,
-                    Button::R4 => ControllerInput::RightBumper, // TODO
-                    Button::R5 => ControllerInput::RightTrigger, // TODO
-                    Button::R1 => ControllerInput::RightTrigger,
-                    Button::DpadDown => ControllerInput::Down,
-                    Button::DpadRight => ControllerInput::Right,
-                    Button::DpadLeft => ControllerInput::Left,
-                    Button::DpadUp => ControllerInput::Up,
-                    Button::Start => ControllerInput::Start,
-                    Button::ThumbLeft => ControllerInput::LeftThumb,
-                    Button::Steam => ControllerInput::Home,
-                    Button::L4 => ControllerInput::LeftBumper, // TODO
-                    Button::L5 => ControllerInput::LeftTrigger, // TODO
-                    Button::L1 => ControllerInput::LeftBumper, // TODO
-                    Button::ThumbRightTouch => ControllerInput::RightThumb, // TODO
-                    Button::PadRightTouch => ControllerInput::RightThumb, // TODO
-                    Button::PadRightClick => ControllerInput::RightThumb, // TODO
-                    Button::R2 => ControllerInput::RightTrigger,
-                    Button::ThumbLeftTouch => ControllerInput::LeftThumb, //TODO
-                    Button::PadLeftTouch => ControllerInput::LeftThumb,   // TODO
-                    Button::PadLeftClick => ControllerInput::LeftThumb,   // TODO
-                    Button::L2 => ControllerInput::LeftTrigger,
-                    Button::GripRight => ControllerInput::RightThumb, // TODO
-                    Button::GripLeft => ControllerInput::LeftThumb,   // TODO
+                    Button::A => ControllerInput::A(states.contains(Button::A)),
+                    Button::B => ControllerInput::B(states.contains(Button::B)),
+                    Button::X => ControllerInput::X(states.contains(Button::X)),
+                    Button::Y => ControllerInput::Y(states.contains(Button::Y)),
+                    Button::Menu => ControllerInput::Menu(states.contains(Button::Menu)),
+                    Button::ThumbRight => ControllerInput::RightThumb(states.contains(Button::ThumbRight)),
+                    Button::Select => ControllerInput::Select(states.contains(Button::Select)),
+                    Button::R4 => ControllerInput::RightBumper(states.contains(Button::R4)), // TODO
+                    Button::R5 => ControllerInput::RightTrigger(0.0), // TODO
+                    Button::R1 => ControllerInput::RightBumper(states.contains(Button::R1)),
+                    Button::DpadDown => ControllerInput::Down(states.contains(Button::DpadDown)),
+                    Button::DpadRight => ControllerInput::Right(states.contains(Button::DpadRight)),
+                    Button::DpadLeft => ControllerInput::Left(states.contains(Button::DpadLeft)),
+                    Button::DpadUp => ControllerInput::Up(states.contains(Button::DpadUp)),
+                    Button::Start => ControllerInput::Start(states.contains(Button::Start)),
+                    Button::ThumbLeft => ControllerInput::LeftThumb(states.contains(Button::ThumbLeft)),
+                    Button::Steam => ControllerInput::Home(states.contains(Button::Steam)),
+                    Button::L4 => ControllerInput::LeftBumper(states.contains(Button::L4)), // TODO
+                    Button::L5 => ControllerInput::LeftTrigger(0.0), // TODO
+                    Button::L1 => ControllerInput::LeftBumper(states.contains(Button::L1)), // TODO
+                    Button::ThumbRightTouch => ControllerInput::RightThumb(states.contains(Button::ThumbRightTouch)), // TODO
+                    Button::PadRightTouch => ControllerInput::RightThumb(states.contains(Button::PadRightTouch)), // TODO
+                    Button::PadRightClick => ControllerInput::RightThumb(states.contains(Button::PadRightClick)), // TODO
+                    Button::R2 => ControllerInput::RightTrigger(0.0),
+                    Button::ThumbLeftTouch => ControllerInput::LeftThumb(states.contains(Button::ThumbLeftTouch)), //TODO
+                    Button::PadLeftTouch => ControllerInput::LeftThumb(states.contains(Button::PadLeftTouch)),   // TODO
+                    Button::PadLeftClick => ControllerInput::LeftThumb(states.contains(Button::PadLeftClick)),   // TODO
+                    Button::L2 => ControllerInput::LeftTrigger(0.0),
+                    Button::GripRight => ControllerInput::RightThumb(states.contains(Button::GripRight)), // TODO
+                    Button::GripLeft => ControllerInput::LeftThumb(states.contains(Button::GripLeft)),   // TODO
                     _ => panic!("Undefined Button!"),
                 })
             })
@@ -136,12 +171,8 @@ impl Device for SteamController {
 
     fn get_event_from_device_response(&self, response: &[u8]) -> Option<Vec<DeviceEvent>> {
         let mut events = vec![];
-        if response[0] == RESPONSE_BUTTON_EVENT {
-            let button_bits = u32::from_le_bytes(response[2..6].try_into().unwrap());
-            events = Self::get_buttons(button_bits)
-                .iter()
-                .map(|controller_input| DeviceEvent::ButtonPressed(*controller_input))
-                .collect();
+        if response[0] == RESPONSE_INPUT_EVENT {
+            events.append(&mut self.handle_buttons(response[BUTTON_LOCATION].try_into().unwrap()));
         }
 
         if events.is_empty() {

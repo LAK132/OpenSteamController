@@ -179,6 +179,7 @@ pub struct DeviceProperties {
     pub battery_level: Option<u8>,
     pub charging: Option<ChargingStatus>,
     pub connected: Option<bool>,
+    pub previous_button_bitmap: u64,
 }
 
 impl Display for DeviceProperties {
@@ -324,6 +325,9 @@ impl DeviceState {
             DeviceEvent::ButtonPressed(_controller_input) => {
                 panic!("ButtonPressed should be handled in the refreshes")
             }
+            DeviceEvent::UpdateBitmap(bitmap) => {
+                self.device_properties.previous_button_bitmap = *bitmap
+            }
         };
     }
 }
@@ -371,6 +375,7 @@ impl DeviceProperties {
             battery_level: None,
             charging: None,
             connected: None,
+            previous_button_bitmap: 0,
         }
     }
 
@@ -503,6 +508,7 @@ pub enum DeviceEvent {
     Charging(ChargingStatus),
     WirelessConnected(bool),
     ButtonPressed(ControllerInput),
+    UpdateBitmap(u64),
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
