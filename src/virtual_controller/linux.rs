@@ -1,16 +1,9 @@
-use std::i32;
 use std::ops::Neg;
 
 use crate::virtual_controller::{AbstractVirtualController, ControllerInput};
 use uinput::event::absolute::Position;
 use uinput::event::Controller;
 use uinput::{event::controller, Device, Result};
-
-/*
- * TODO X/Y and A/B are swapped
- * Bumpers and DPAD don't work
- * Menu/Option isn't Mapped
- */
 
 /// Xbox series x
 const PRODUCT_ID: u16 = 0x0b12;
@@ -41,10 +34,10 @@ fn map_digital_controller_input(input: ControllerInput) -> (uinput::event::Contr
         ControllerInput::Y(pressed) => (Controller::GamePad(controller::GamePad::Y), pressed),
         ControllerInput::Z(pressed) => (Controller::GamePad(controller::GamePad::Z), pressed),
         ControllerInput::LeftBumper(pressed) => {
-            (Controller::GamePad(controller::GamePad::TL2), pressed)
+            (Controller::GamePad(controller::GamePad::TL), pressed)
         }
         ControllerInput::RightBumper(pressed) => {
-            (Controller::GamePad(controller::GamePad::TR2), pressed)
+            (Controller::GamePad(controller::GamePad::TR), pressed)
         }
         ControllerInput::Select(pressed) => {
             (Controller::GamePad(controller::GamePad::Select), pressed)
@@ -59,6 +52,8 @@ fn map_digital_controller_input(input: ControllerInput) -> (uinput::event::Contr
         ControllerInput::RightThumb(pressed) => {
             (Controller::GamePad(controller::GamePad::ThumbR), pressed)
         }
+        ControllerInput::Menu(pressed) => (Controller::GamePad(controller::GamePad::Mode), pressed),
+        ControllerInput::Home(pressed) => (Controller::GamePad(controller::GamePad::Mode), pressed),
         ControllerInput::Up(pressed) => (Controller::DPad(controller::DPad::Up), pressed),
         ControllerInput::Down(pressed) => (Controller::DPad(controller::DPad::Down), pressed),
         ControllerInput::Left(pressed) => (Controller::DPad(controller::DPad::Left), pressed),
@@ -92,6 +87,15 @@ impl VirtualController {
             .event(uinput::event::Controller::GamePad(controller::GamePad::Y))?
             .event(uinput::event::Controller::GamePad(controller::GamePad::TL))?
             .event(uinput::event::Controller::GamePad(controller::GamePad::TR))?
+            .event(uinput::event::Controller::GamePad(controller::GamePad::TR2))?
+            .event(uinput::event::Controller::GamePad(controller::GamePad::TL2))?
+            .event(uinput::event::Controller::GamePad(
+                controller::GamePad::Mode,
+            ))?
+            .event(uinput::event::Controller::DPad(controller::DPad::Up))?
+            .event(uinput::event::Controller::DPad(controller::DPad::Down))?
+            .event(uinput::event::Controller::DPad(controller::DPad::Left))?
+            .event(uinput::event::Controller::DPad(controller::DPad::Right))?
             .event(uinput::event::Controller::GamePad(
                 controller::GamePad::Select,
             ))?
