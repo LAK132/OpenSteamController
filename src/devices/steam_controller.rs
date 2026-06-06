@@ -129,36 +129,36 @@ impl SteamController {
             .iter()
             .map(|button| {
                 bitflags_match!(button, {
-                    Button::A => ControllerInput::A(states.contains(Button::A)),
-                    Button::B => ControllerInput::B(states.contains(Button::B)),
-                    Button::X => ControllerInput::X(states.contains(Button::X)),
-                    Button::Y => ControllerInput::Y(states.contains(Button::Y)),
-                    Button::Menu => ControllerInput::Menu(states.contains(Button::Menu)),
-                    Button::ThumbRight => ControllerInput::RightThumb(states.contains(Button::ThumbRight)),
-                    Button::Select => ControllerInput::Select(states.contains(Button::Select)),
-                    Button::R4 => ControllerInput::RightBumper(states.contains(Button::R4)), // TODO
-                    Button::R5 => ControllerInput::RightTrigger(0.0), // TODO
-                    Button::R1 => ControllerInput::RightBumper(states.contains(Button::R1)),
-                    Button::DpadDown => ControllerInput::Down(states.contains(Button::DpadDown)),
-                    Button::DpadRight => ControllerInput::Right(states.contains(Button::DpadRight)),
-                    Button::DpadLeft => ControllerInput::Left(states.contains(Button::DpadLeft)),
-                    Button::DpadUp => ControllerInput::Up(states.contains(Button::DpadUp)),
-                    Button::Start => ControllerInput::Start(states.contains(Button::Start)),
-                    Button::ThumbLeft => ControllerInput::LeftThumb(states.contains(Button::ThumbLeft)),
-                    Button::Steam => ControllerInput::Home(states.contains(Button::Steam)),
-                    Button::L4 => ControllerInput::LeftBumper(states.contains(Button::L4)), // TODO
-                    Button::L5 => ControllerInput::LeftTrigger(0.0), // TODO
-                    Button::L1 => ControllerInput::LeftBumper(states.contains(Button::L1)), // TODO
-                    Button::ThumbRightTouch => ControllerInput::RightThumb(states.contains(Button::ThumbRightTouch)), // TODO
-                    Button::PadRightTouch => ControllerInput::RightThumb(states.contains(Button::PadRightTouch)), // TODO
-                    Button::PadRightClick => ControllerInput::RightThumb(states.contains(Button::PadRightClick)), // TODO
-                    Button::R2 => ControllerInput::RightTrigger(0.0),
-                    Button::ThumbLeftTouch => ControllerInput::LeftThumb(states.contains(Button::ThumbLeftTouch)), //TODO
-                    Button::PadLeftTouch => ControllerInput::LeftThumb(states.contains(Button::PadLeftTouch)),   // TODO
-                    Button::PadLeftClick => ControllerInput::LeftThumb(states.contains(Button::PadLeftClick)),   // TODO
-                    Button::L2 => ControllerInput::LeftTrigger(0.0),
-                    Button::GripRight => ControllerInput::RightThumb(states.contains(Button::GripRight)), // TODO
-                    Button::GripLeft => ControllerInput::LeftThumb(states.contains(Button::GripLeft)),   // TODO
+                    Button::A =>                ControllerInput::A(states.contains(Button::A)),
+                    Button::B =>                ControllerInput::B(states.contains(Button::B)),
+                    Button::X =>                ControllerInput::X(states.contains(Button::X)),
+                    Button::Y =>                ControllerInput::Y(states.contains(Button::Y)),
+                    Button::Menu =>             ControllerInput::Menu(states.contains(Button::Menu)),
+                    Button::ThumbRight =>       ControllerInput::RightThumb(states.contains(Button::ThumbRight)),
+                    Button::Select =>           ControllerInput::Select(states.contains(Button::Select)),
+                    Button::R4 =>               ControllerInput::RightBumper(states.contains(Button::R4)), // TODO
+                    Button::R5 =>               ControllerInput::RightTrigger(1.0), // TODO
+                    Button::R1 =>               ControllerInput::RightBumper(states.contains(Button::R1)),
+                    Button::DpadDown =>         ControllerInput::Down(states.contains(Button::DpadDown)),
+                    Button::DpadRight =>        ControllerInput::Right(states.contains(Button::DpadRight)),
+                    Button::DpadLeft =>         ControllerInput::Left(states.contains(Button::DpadLeft)),
+                    Button::DpadUp =>           ControllerInput::Up(states.contains(Button::DpadUp)),
+                    Button::Start =>            ControllerInput::Start(states.contains(Button::Start)),
+                    Button::ThumbLeft =>        ControllerInput::LeftThumb(states.contains(Button::ThumbLeft)),
+                    Button::Steam =>            ControllerInput::Home(states.contains(Button::Steam)),
+                    Button::L4 =>               ControllerInput::LeftBumper(states.contains(Button::L4)), // TODO
+                    Button::L5 =>               ControllerInput::LeftTrigger(1.0), // TODO
+                    Button::L1 =>               ControllerInput::LeftBumper(states.contains(Button::L1)), // TODO
+                    Button::ThumbRightTouch =>  ControllerInput::RightThumb(states.contains(Button::ThumbRightTouch)), // TODO
+                    Button::PadRightTouch =>    ControllerInput::RightThumb(states.contains(Button::PadRightTouch)), // TODO
+                    Button::PadRightClick =>    ControllerInput::RightThumb(states.contains(Button::PadRightClick)), // TODO
+                    Button::R2 =>               ControllerInput::RightTrigger(1.0),
+                    Button::ThumbLeftTouch =>   ControllerInput::LeftThumb(states.contains(Button::ThumbLeftTouch)), //TODO
+                    Button::PadLeftTouch =>     ControllerInput::LeftThumb(states.contains(Button::PadLeftTouch)),   // TODO
+                    Button::PadLeftClick =>     ControllerInput::LeftThumb(states.contains(Button::PadLeftClick)),   // TODO
+                    Button::L2 =>               ControllerInput::LeftTrigger(1.0),
+                    Button::GripRight =>        ControllerInput::RightThumb(states.contains(Button::GripRight)), // TODO
+                    Button::GripLeft =>         ControllerInput::LeftThumb(states.contains(Button::GripLeft)),   // TODO
                     _ => panic!("Undefined Button!"),
                 })
             })
