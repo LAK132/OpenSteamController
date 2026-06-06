@@ -1,5 +1,5 @@
 use std::i32;
-use std::time::Duration;
+use std::ops::Neg;
 
 use crate::virtual_controller::{AbstractVirtualController, ControllerInput};
 use uinput::event::absolute::Position;
@@ -14,6 +14,10 @@ const VENDOR_ID: u16 = 0x045e;
 const NAME: &str = "Xbox Controller";
 
 /// map generic controller input the the uinput specific events
+/// returns the controller input event and a bool specifying whether the input is pressed or
+/// released
+///
+/// Panics if the input is analog
 fn map_digital_controller_input(input: ControllerInput) -> (uinput::event::Controller, bool) {
     match input {
         ControllerInput::South(pressed) => {
@@ -53,7 +57,7 @@ fn map_digital_controller_input(input: ControllerInput) -> (uinput::event::Contr
         ControllerInput::Down(pressed) => (Controller::DPad(controller::DPad::Down), pressed),
         ControllerInput::Left(pressed) => (Controller::DPad(controller::DPad::Left), pressed),
         ControllerInput::Right(pressed) => (Controller::DPad(controller::DPad::Right), pressed),
-        _ => unimplemented!(),
+        input => panic!("Unknown or analog input {:?}", input),
     }
 }
 
@@ -62,8 +66,12 @@ pub struct VirtualController {
     device: Device,
 }
 
+/// Stick all the way in one direction
 const STICK_MIN: i32 = -32768;
+/// Stick all the way in the other direction
 const STICK_MAX: i32 = 32767;
+/// Trigger pressed down
+const TRIGGER_MAX: i32 = 255;
 
 impl VirtualController {
     /// create new virtual controller
@@ -115,12 +123,12 @@ impl VirtualController {
             // Triggers
             .event(uinput::event::absolute::Absolute::Position(Position::Z))?
             .min(0)
-            .max(255)
+            .max(TRIGGER_MAX)
             .fuzz(0)
             .flat(0)
             .event(uinput::event::absolute::Absolute::Position(Position::RZ))?
             .min(0)
-            .max(255)
+            .max(TRIGGER_MAX)
             .fuzz(0)
             .flat(0)
             .create()?;
@@ -143,20 +151,61 @@ impl AbstractVirtualController for VirtualController {
     fn send_input(&mut self, input: ControllerInput) -> anyhow::Result<()> {
         match input {
             ControllerInput::RightJoyStick(x, y) => {
-                todo!();
+                self.device.position(
+                    &uinput::event::absolute::Position::RX,
+                    if x.is_sign_positive() {
+                        x * STICK_MAX as f32
+                    } else {
+                        x.neg() * STICK_MIN as f32
+                    } as i32,
+                )?;
+                self.device.position(
+                    &uinput::event::absolute::Position::RY,
+                    if y.is_sign_positive() {
+                        y * STICK_MAX as f32
+                    } else {
+                        y.neg() * STICK_MIN as f32
+                    } as i32,
+                )?;
+            }
+            ControllerInput::LeftJoyStick(x, y) => {
                 self.device.position(
                     &uinput::event::absolute::Position::X,
-                    ((STICK_MAX - STICK_MIN) as f32 * x) as i32,
+                    if x.is_sign_positive() {
+                        x * STICK_MAX as f32
+                    } else {
+                        x.neg() * STICK_MIN as f32
+                    } as i32,
                 )?;
                 self.device.position(
                     &uinput::event::absolute::Position::Y,
-                    ((STICK_MAX - STICK_MIN) as f32 * y) as i32,
+                    if y.is_sign_positive() {
+                        y * STICK_MAX as f32
+                    } else {
+                        y.neg() * STICK_MIN as f32
+                    } as i32,
                 )?;
-                self.device.synchronize()?;
             }
-            ControllerInput::LeftJoyStick(x, y) => todo!(),
-            ControllerInput::LeftTrigger(force) => todo!(),
-            ControllerInput::RightTrigger(force) => todo!(),
+            ControllerInput::LeftTrigger(force) => {
+                self.device.position(
+                    &uinput::event::absolute::Position::X,
+                    if force.is_sign_positive() {
+                        force * TRIGGER_MAX as f32
+                    } else {
+                        0f32
+                    } as i32,
+                )?;
+            }
+            ControllerInput::RightTrigger(force) => {
+                self.device.position(
+                    &uinput::event::absolute::Position::X,
+                    if force.is_sign_positive() {
+                        force * TRIGGER_MAX as f32
+                    } else {
+                        0f32
+                    } as i32,
+                )?;
+            }
             digital_input => self.perform_digital_input(digital_input)?,
         }
         self.device.synchronize()?;
