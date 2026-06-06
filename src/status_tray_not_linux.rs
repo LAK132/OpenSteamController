@@ -6,7 +6,7 @@ use std::{
 #[cfg(target_os = "windows")]
 use image::{Rgba, RgbaImage};
 use open_steam_controller::devices::{
-    format_int_value, DeviceEvent, DeviceProperties, PropertyType,
+    format_int_value, DeviceEvent, DeviceProperties, PropertyDescriptorWrapper, PropertyType,
 };
 #[cfg(target_os = "windows")]
 use tray_icon::menu::CheckMenuItem;
