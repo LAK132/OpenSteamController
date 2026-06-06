@@ -26,6 +26,8 @@ const TRIGGER_LOCATION: Range<usize> = 6..10;
 const JOYSTICK_LOCATION: Range<usize> = 10..18;
 /// Range in the response containing the trackpads (x y pressure)
 const TRACKPAD_LOCATION: Range<usize> = 18..30;
+/// Max value of an analog input
+const ANALOG_MAX: f32 = 0b01111111_11111111 as f32;
 
 pub struct SteamController {
     state: DeviceState,
@@ -89,6 +91,15 @@ impl SteamController {
         packet
     }
 
+    fn wrap_controller_input_into_device_event(input: Vec<ControllerInput>) -> Vec<DeviceEvent> {
+        input
+            .iter()
+            .map(|event| DeviceEvent::ButtonPressed(*event))
+            .collect()
+    }
+
+    /// Converts the slice containing the bits of currently pressed buttons into corresponding
+    /// events of press or release button and updates the previous bitmap for comparison
     fn handle_buttons(&self, response: [u8; 4]) -> Vec<DeviceEvent> {
         let button_bitmap = Button::from_bits_truncate(u32::from_le_bytes(response));
         let previous_bitmap = Button::from_bits_truncate(
@@ -98,11 +109,10 @@ impl SteamController {
         );
         let changed_buttons = button_bitmap.symmetric_difference(previous_bitmap);
         if !changed_buttons.is_empty() {
-            let mut result = Self::get_buttons(&changed_buttons, &button_bitmap)
-                .iter()
-                .map(|controller_input| DeviceEvent::ButtonPressed(*controller_input))
-                .collect::<Vec<DeviceEvent>>();
-            println!("update bitmap");
+            let mut result = Self::wrap_controller_input_into_device_event(Self::get_buttons(
+                &changed_buttons,
+                &button_bitmap,
+            ));
             result.push(DeviceEvent::UpdateBitmap(button_bitmap.bits() as u64));
             result
         } else {
@@ -154,6 +164,60 @@ impl SteamController {
             })
             .collect::<Vec<ControllerInput>>()
     }
+
+    /// Converts two bytes of data into a value between -1.0 and 1.0
+    fn convert_analog(input: [u8; 2]) -> f32 {
+        let bits = i16::from_le_bytes(input) as f32;
+        bits / ANALOG_MAX
+    }
+
+    /// Converts four bytes of data into two axes between -1.0 and 1.0
+    fn convert_analog_2d(input: [u8; 4]) -> (f32, f32) {
+        let x = Self::convert_analog(input[0..2].try_into().unwrap());
+        let y = -Self::convert_analog(input[2..4].try_into().unwrap());
+        (x, y)
+    }
+
+    /// Converts six bytes of data into two three between -1.0 and 1.0
+    fn convert_analog_3d(input: [u8; 6]) -> (f32, f32, f32) {
+        let x = Self::convert_analog(input[0..2].try_into().unwrap());
+        let y = -Self::convert_analog(input[2..4].try_into().unwrap());
+        let z = Self::convert_analog(input[4..6].try_into().unwrap());
+        (x, y, z)
+    }
+
+    /// Converts four bytes of data into controller input events for the left and right trigger
+    fn handle_triggers(response: [u8; 4]) -> Vec<DeviceEvent> {
+        let left = Self::convert_analog(response[0..2].try_into().unwrap());
+        let right = Self::convert_analog(response[2..4].try_into().unwrap());
+        Self::wrap_controller_input_into_device_event(vec![
+            ControllerInput::LeftTrigger(left),
+            ControllerInput::RightTrigger(right),
+        ])
+    }
+
+    /// Converts four bytes of data into controller input events for the left and right joystick
+    fn handle_joysticks(response: [u8; 8]) -> Vec<DeviceEvent> {
+        let (left_x, left_y) = Self::convert_analog_2d(response[0..4].try_into().unwrap());
+        let (right_x, right_y) = Self::convert_analog_2d(response[4..8].try_into().unwrap());
+        Self::wrap_controller_input_into_device_event(vec![
+            ControllerInput::LeftJoyStick(left_x, left_y),
+            ControllerInput::RightJoyStick(right_x, right_y),
+        ])
+    }
+
+    /// Converts four bytes of data into controller input events for the left and right trackpad
+    fn handle_trackpads(response: [u8; 12]) -> Vec<DeviceEvent> {
+        println!("{response:?}");
+        let (left_x, left_y, left_force) =
+            Self::convert_analog_3d(response[0..6].try_into().unwrap());
+        let (right_x, right_y, right_force) =
+            Self::convert_analog_3d(response[6..12].try_into().unwrap());
+        Self::wrap_controller_input_into_device_event(vec![
+            ControllerInput::LeftTrackpad(left_x, left_y, left_force),
+            ControllerInput::RightTrackpad(right_x, right_y, right_force),
+        ])
+    }
 }
 
 impl Device for SteamController {
@@ -173,6 +237,15 @@ impl Device for SteamController {
         let mut events = vec![];
         if response[0] == RESPONSE_INPUT_EVENT {
             events.append(&mut self.handle_buttons(response[BUTTON_LOCATION].try_into().unwrap()));
+            events.append(&mut SteamController::handle_triggers(
+                response[TRIGGER_LOCATION].try_into().unwrap(),
+            ));
+            events.append(&mut SteamController::handle_joysticks(
+                response[JOYSTICK_LOCATION].try_into().unwrap(),
+            ));
+            events.append(&mut SteamController::handle_trackpads(
+                response[TRACKPAD_LOCATION].try_into().unwrap(),
+            ));
         }
 
         if events.is_empty() {
