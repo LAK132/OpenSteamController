@@ -74,14 +74,17 @@ impl Controller {
     }
 }
 
-pub fn connect_compatible_device() -> Result<Controller, DeviceError> {
-    match connect_hid_device() {
-        Ok(device) => Ok(Controller::Hid(device)),
+pub fn connect_compatible_devices() -> Result<Vec<Controller>, DeviceError> {
+    match connect_hid_devices() {
+        Ok(devices) => Ok(devices
+            .into_iter()
+            .map(|device| Controller::Hid(device))
+            .collect()),
         Err(error) => Err(error),
     }
 }
 
-fn connect_hid_device() -> Result<Box<dyn Device>, DeviceError> {
+fn connect_hid_devices() -> Result<Vec<Box<dyn Device>>, DeviceError> {
     let all_product_ids: Vec<u16> = DEVICE_REGISTER
         .iter()
         .flat_map(|e| e.product_ids.iter().copied())
@@ -90,38 +93,47 @@ fn connect_hid_device() -> Result<Box<dyn Device>, DeviceError> {
         .iter()
         .flat_map(|e| e.vendor_ids.iter().copied())
         .collect();
-    let states = DeviceState::new(&all_product_ids, &all_vendor_ids)?;
+    let states = DeviceState::new(&all_product_ids, &all_vendor_ids).unwrap_or(Vec::new());
     debug_println!("Found device selecting handler");
 
     // On Linux and MacOS we can just take the first
     #[cfg(not(target_os = "windows"))]
     {
-        let state = states
+        let devices: Vec<Box<dyn Device>> = states
             .into_iter()
             // every 3rd device is a new controller
             // 0-2 is first
             // 3-5 is second...
-            //.nth(0)
-            .next()
-            .ok_or(DeviceError::NoDeviceFound())?;
-        eprintln!(
-            "Connecting to {}",
-            state
-                .device_properties
-                .device_name
-                .clone()
-                .unwrap_or("???".to_string())
-        );
-        let entry = DEVICE_REGISTER
-            .iter()
-            .find(|e| {
-                e.vendor_ids.contains(&state.device_properties.vendor_id)
-                    && e.product_ids.contains(&state.device_properties.product_id)
+            .step_by(3)
+            .map(|state| {
+                eprintln!(
+                    "Connecting to {}",
+                    state
+                        .device_properties
+                        .device_name
+                        .clone()
+                        .unwrap_or("???".to_string())
+                );
+                DEVICE_REGISTER
+                    .iter()
+                    .find(|e| {
+                        e.vendor_ids.contains(&state.device_properties.vendor_id)
+                            && e.product_ids.contains(&state.device_properties.product_id)
+                    })
+                    .and_then(|entry| {
+                        let device = (entry.factory)(state);
+                        Some(device)
+                    })
             })
-            .ok_or(DeviceError::NoDeviceFound())?;
+            .filter(|device| device.is_some())
+            .map(|device| device.expect("Previous filter should have removed all None"))
+            .collect();
 
-        let device = (entry.factory)(state);
-        Ok(device)
+        if devices.is_empty() {
+            Err(DeviceError::NoDeviceFound())
+        } else {
+            Ok(devices)
+        }
     }
     // On Windows we have to check which interface can be used
     #[cfg(target_os = "windows")]

@@ -1,4 +1,4 @@
-use open_steam_controller::devices::connect_compatible_device;
+use open_steam_controller::devices::connect_compatible_devices;
 
 use open_steam_controller::debug_println;
 
@@ -154,8 +154,8 @@ fn main() {
     let tray_handler = TrayHandler::new(StatusTray::new(tx, monochrome_icons));
     let mut virt_controller = VirtualController::new().unwrap();
     loop {
-        let mut device = loop {
-            match connect_compatible_device() {
+        let mut devices = loop {
+            match connect_compatible_devices() {
                 Ok(d) => break d,
                 Err(e) => {
                     tray_handler.clear_state();
@@ -169,9 +169,9 @@ fn main() {
         let mut run_counter = 0;
         loop {
             match if run_counter % 30 == 0 {
-                device.active_refresh_state()
+                devices[0].active_refresh_state()
             } else {
-                device.passive_refresh_state()
+                devices[0].passive_refresh_state()
             } {
                 Ok(input_events) => {
                     for input_event in input_events {
@@ -182,16 +182,16 @@ fn main() {
                 }
                 Err(error) => {
                     eprintln!("{error}");
-                    tray_handler.update(&device.device_properties());
+                    tray_handler.update(&devices[0].device_properties());
                     break; // try to reconnect
                 }
             };
 
             for command in rx.try_iter() {
-                let _ = device.try_apply(command);
+                let _ = devices[0].try_apply(command);
             }
 
-            tray_handler.update(&device.device_properties());
+            tray_handler.update(&devices[0].device_properties());
             run_counter += 1;
         }
     }
