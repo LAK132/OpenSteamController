@@ -198,7 +198,7 @@ impl AbstractVirtualController for VirtualController {
             }
             ControllerInput::LeftTrigger(force) => {
                 self.device.position(
-                    &uinput::event::absolute::Position::X,
+                    &uinput::event::absolute::Position::Z,
                     if force.is_sign_positive() {
                         force * TRIGGER_MAX as f32
                     } else {
@@ -208,7 +208,7 @@ impl AbstractVirtualController for VirtualController {
             }
             ControllerInput::RightTrigger(force) => {
                 self.device.position(
-                    &uinput::event::absolute::Position::X,
+                    &uinput::event::absolute::Position::RZ,
                     if force.is_sign_positive() {
                         force * TRIGGER_MAX as f32
                     } else {
