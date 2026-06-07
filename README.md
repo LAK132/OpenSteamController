@@ -4,6 +4,7 @@
 - Multicontroller
     - Linux each controller three interfaces
     - Windows one at 2 the other at 10
+    - After starting threads still detect bluetouth and handle puck disconnect and reconnect
 - Swap A/B
 - Display more information in tray
 - battery icon?
