@@ -42,7 +42,7 @@ bitflags! {
         const Y                 = 1 <<  3;
         const Menu              = 1 <<  4;
         const ThumbRight        = 1 <<  5;
-        const Select            = 1 <<  6;
+        const Start             = 1 <<  6;
         const R4                = 1 <<  7;
         const R5                = 1 <<  8;
         const R1                = 1 <<  9;
@@ -50,7 +50,7 @@ bitflags! {
         const DpadRight         = 1 << 11;
         const DpadLeft          = 1 << 12;
         const DpadUp            = 1 << 13;
-        const Start             = 1 << 14;
+        const Select            = 1 << 14;
         const ThumbLeft         = 1 << 15;
         const Steam             = 1 << 16;
         const L4                = 1 << 17;
