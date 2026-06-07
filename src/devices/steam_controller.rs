@@ -175,14 +175,14 @@ impl SteamController {
     /// Converts four bytes of data into two axes between -1.0 and 1.0
     fn convert_analog_2d(input: [u8; 4]) -> (f32, f32) {
         let x = Self::convert_analog(input[0..2].try_into().unwrap());
-        let y = -Self::convert_analog(input[2..4].try_into().unwrap());
+        let y = Self::convert_analog(input[2..4].try_into().unwrap());
         (x, y)
     }
 
     /// Converts six bytes of data into two three between -1.0 and 1.0
     fn convert_analog_3d(input: [u8; 6]) -> (f32, f32, f32) {
         let x = Self::convert_analog(input[0..2].try_into().unwrap());
-        let y = -Self::convert_analog(input[2..4].try_into().unwrap());
+        let y = Self::convert_analog(input[2..4].try_into().unwrap());
         let z = Self::convert_analog(input[4..6].try_into().unwrap());
         (x, y, z)
     }
