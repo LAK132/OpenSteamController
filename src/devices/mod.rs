@@ -21,7 +21,8 @@ pub fn format_int_value(value: u8, suffix: &str) -> String {
     }
 }
 
-type DeviceFactory = fn(DeviceState) -> Box<dyn Device>;
+type DeviceBox = Box<dyn Device + Send>;
+type DeviceFactory = fn(DeviceState) -> DeviceBox;
 
 struct DeviceEntry {
     vendor_ids: &'static [u16],
@@ -39,7 +40,7 @@ const RESPONSE_BUFFER_SIZE: usize = 256;
 pub const RESPONSE_DELAY: Duration = Duration::from_millis(50);
 
 pub enum Controller {
-    Hid(Box<dyn Device>),
+    Hid(DeviceBox),
 }
 
 impl Controller {
@@ -81,7 +82,7 @@ pub fn connect_compatible_devices() -> Result<Vec<Controller>, DeviceError> {
     }
 }
 
-fn connect_hid_devices() -> Result<Vec<Box<dyn Device>>, DeviceError> {
+fn connect_hid_devices() -> Result<Vec<DeviceBox>, DeviceError> {
     let all_product_ids: Vec<u16> = DEVICE_REGISTER
         .iter()
         .flat_map(|e| e.product_ids.iter().copied())
@@ -96,7 +97,7 @@ fn connect_hid_devices() -> Result<Vec<Box<dyn Device>>, DeviceError> {
     // On Linux and MacOS we can just take the first
     #[cfg(not(target_os = "windows"))]
     {
-        let devices: Vec<Box<dyn Device>> = states
+        let devices: Vec<DeviceBox> = states
             .into_iter()
             // every 3rd device is a new controller
             // 0-2 is first
