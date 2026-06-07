@@ -7,7 +7,6 @@
 - Swap A/B
 - Display more information in tray
 - merge cli and tray app
-- refactor main loop
 - battery icon?
 - windows icon
 - macos virtual controller

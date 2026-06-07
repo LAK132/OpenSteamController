@@ -1,5 +1,7 @@
 use open_steam_controller::devices::connect_compatible_device;
 
+use open_steam_controller::debug_println;
+
 #[cfg(target_os = "linux")]
 mod status_tray;
 
@@ -42,14 +44,6 @@ fn main() {
             .author(env!("CARGO_PKG_AUTHORS"))
             .about("A tray application for monitoring the new Steam Controller")
             .arg(
-                Arg::new("refresh_interval")
-                    .long("refresh_interval")
-                    .required(false)
-                    .help("Set the refresh interval (in seconds)")
-                    .default_value("3")
-                    .value_parser(clap::value_parser!(u64)),
-            )
-            .arg(
                 Arg::new("verbose")
                     .long("verbose")
                     .short('v')
@@ -60,9 +54,6 @@ fn main() {
             .get_matches();
 
         VERBOSE.set(matches.get_flag("verbose")).unwrap();
-
-        let refresh_interval = *matches.get_one::<u64>("refresh_interval").unwrap_or(&3);
-        let refresh_interval = Duration::from_secs(refresh_interval);
 
         loop {
             let mut device = loop {
@@ -86,7 +77,9 @@ fn main() {
                 } {
                     Ok(input_events) => {
                         for input_event in input_events {
-                            virt_controller.send_input(input_event).unwrap();
+                            if let Err(e) = virt_controller.send_input(input_event) {
+                                debug_println!("{e}");
+                            }
                         }
                     }
                     Err(error) => {
@@ -95,11 +88,8 @@ fn main() {
                         break; // try to reconnect
                     }
                 };
-                continue;
-                // with the default refresh_interval the state is only actively queried every 3min
-                // querying the device to frequently can lead to instability
-                let first = rx.recv_timeout(refresh_interval);
-                for command in first.into_iter().chain(rx.try_iter()) {
+
+                for command in rx.try_iter() {
                     let _ = device.try_apply(command);
                     std::thread::sleep(open_steam_controller::devices::RESPONSE_DELAY);
                     let _ = device.active_refresh_state();
@@ -141,14 +131,6 @@ fn main() {
         .author(env!("CARGO_PKG_AUTHORS"))
         .about("A tray application for monitoring the new Steam Controller.")
         .arg(
-            Arg::new("refresh_interval")
-                .long("refresh_interval")
-                .required(false)
-                .help("Set the refresh interval (in seconds)")
-                .default_value("3")
-                .value_parser(clap::value_parser!(u64)),
-        )
-        .arg(
             Arg::new("verbose")
                 .long("verbose")
                 .short('v')
@@ -168,8 +150,6 @@ fn main() {
     VERBOSE.set(matches.get_flag("verbose")).unwrap();
     let monochrome_icons = matches.get_flag("monochrome_icons");
 
-    let refresh_interval = *matches.get_one::<u64>("refresh_interval").unwrap_or(&3);
-    let refresh_interval = Duration::from_secs(refresh_interval);
     let (tx, rx) = mpsc::channel();
     let tray_handler = TrayHandler::new(StatusTray::new(tx, monochrome_icons));
     let mut virt_controller = VirtualController::new().unwrap();
@@ -195,7 +175,9 @@ fn main() {
             } {
                 Ok(input_events) => {
                     for input_event in input_events {
-                        virt_controller.send_input(input_event);
+                        if let Err(e) = virt_controller.send_input(input_event) {
+                            debug_println!("{e}");
+                        }
                     }
                 }
                 Err(error) => {
@@ -205,13 +187,8 @@ fn main() {
                 }
             };
 
-            // with the default refresh_interval the state is only actively queried every 3min
-            // querying the device to frequently can lead to instability
-            let first = rx.recv_timeout(refresh_interval);
-            for command in first.into_iter().chain(rx.try_iter()) {
+            for command in rx.try_iter() {
                 let _ = device.try_apply(command);
-                std::thread::sleep(open_steam_controller::devices::RESPONSE_DELAY);
-                let _ = device.active_refresh_state();
             }
 
             tray_handler.update(&device.device_properties());
