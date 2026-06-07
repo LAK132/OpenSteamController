@@ -1,7 +1,8 @@
 use std::ops::Range;
 
 use crate::{
-    devices::{Device, DeviceEvent, DeviceState},
+    debug_println,
+    devices::{ChargingStatus, Device, DeviceEvent, DeviceState},
     virtual_controller::ControllerInput,
 };
 use bitflags::{bitflags, bitflags_match};
@@ -18,6 +19,8 @@ const FEATURE_REPORT: u8 = 0x01;
 const SET_SETTING_CMD: u8 = 0x87;
 /// Response prefix for button event
 const RESPONSE_INPUT_EVENT: u8 = 0x45;
+/// Response prefix for status event
+const RESPONSE_STATUS_EVENT: u8 = 0x43;
 /// Range in the response containing the button bits
 const BUTTON_LOCATION: Range<usize> = 2..6;
 /// Range in the response containing the triggers
@@ -124,7 +127,6 @@ impl SteamController {
     /// into a Vec of ControllerInput filled with digital ControllerInput, either pressed or
     /// released
     fn get_buttons(changes: &Button, states: &Button) -> Vec<ControllerInput> {
-        println!("Changes: {:0>32b}", changes.bits());
         changes
             .iter()
             .map(|button| {
@@ -208,7 +210,6 @@ impl SteamController {
 
     /// Converts four bytes of data into controller input events for the left and right trackpad
     fn handle_trackpads(response: [u8; 12]) -> Vec<DeviceEvent> {
-        println!("{response:?}");
         let (left_x, left_y, left_force) =
             Self::convert_analog_3d(response[0..6].try_into().unwrap());
         let (right_x, right_y, right_force) =
@@ -217,6 +218,36 @@ impl SteamController {
             ControllerInput::LeftTrackpad(left_x, left_y, left_force),
             ControllerInput::RightTrackpad(right_x, right_y, right_force),
         ])
+    }
+
+    fn handle_status(response: &[u8; 16]) -> Vec<DeviceEvent> {
+        let charge_event = DeviceEvent::Charging(match response[1] {
+            1 => ChargingStatus::NotCharging,
+            3 => ChargingStatus::Charging,
+            4 => ChargingStatus::FullyCharged,
+            x => {
+                debug_println!("Unknown charging status encountered: {x}");
+                ChargingStatus::ChargeError
+            }
+        });
+        //  2 battery? values 92-96, sudden jump to 100?
+        let battery_event = DeviceEvent::BatteryLevel(response[2]);
+        //  3 unknown; values 1-256
+        //  4 unknown; values 15 and 16
+        //  5 unknown; values 4-184
+        //  6 unknown; static 16
+        //  7 unknown; values 0-252
+        //  8 unknown values 0-19
+        //  9 unknown; values 0-245
+        // 10 charging? values 0-1, at least one time 0 while connected
+        let _charging1 = response[10];
+        // 11 unknown; values 0-212
+        // 12 charging? values 0-1
+        let _charging2 = response[12];
+        // 13 unknown; values 56-248
+        // 14 unknown; values 98-104
+        // 15.. unused? only zeroes
+        vec![charge_event, battery_event]
     }
 }
 
@@ -235,17 +266,33 @@ impl Device for SteamController {
 
     fn get_event_from_device_response(&self, response: &[u8]) -> Option<Vec<DeviceEvent>> {
         let mut events = vec![];
-        if response[0] == RESPONSE_INPUT_EVENT {
-            events.append(&mut self.handle_buttons(response[BUTTON_LOCATION].try_into().unwrap()));
-            events.append(&mut SteamController::handle_triggers(
-                response[TRIGGER_LOCATION].try_into().unwrap(),
-            ));
-            events.append(&mut SteamController::handle_joysticks(
-                response[JOYSTICK_LOCATION].try_into().unwrap(),
-            ));
-            events.append(&mut SteamController::handle_trackpads(
-                response[TRACKPAD_LOCATION].try_into().unwrap(),
-            ));
+        match response[0] {
+            RESPONSE_STATUS_EVENT => {
+                events.append(&mut SteamController::handle_status(
+                    &response[0..16].try_into().unwrap(),
+                ));
+            }
+            RESPONSE_INPUT_EVENT => {
+                events.append(
+                    &mut self.handle_buttons(response[BUTTON_LOCATION].try_into().unwrap()),
+                );
+                events.append(&mut SteamController::handle_triggers(
+                    // 34-35 rotate left down
+                    // 36-37 rotate bottom down
+                    // 42-43 rotate right down
+                    // 44-45 rotate left
+                    response[TRIGGER_LOCATION].try_into().unwrap(),
+                ));
+                events.append(&mut SteamController::handle_joysticks(
+                    response[JOYSTICK_LOCATION].try_into().unwrap(),
+                ));
+                events.append(&mut SteamController::handle_trackpads(
+                    response[TRACKPAD_LOCATION].try_into().unwrap(),
+                ));
+            }
+            _ => {
+                debug_println!("{:?}", &response);
+            }
         }
 
         if events.is_empty() {

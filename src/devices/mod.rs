@@ -321,7 +321,7 @@ impl DeviceState {
 
     fn update_self_with_event(&mut self, event: &DeviceEvent) {
         match event {
-            DeviceEvent::BatterLevel(level) => self.device_properties.battery_level = Some(*level),
+            DeviceEvent::BatteryLevel(level) => self.device_properties.battery_level = Some(*level),
             DeviceEvent::Charging(status) => self.device_properties.charging = Some(*status),
             DeviceEvent::WirelessConnected(connected) => {
                 self.device_properties.connected = Some(*connected)
@@ -508,7 +508,7 @@ pub enum DeviceError {
 
 #[derive(Debug, Copy, Clone)]
 pub enum DeviceEvent {
-    BatterLevel(u8),
+    BatteryLevel(u8),
     Charging(ChargingStatus),
     WirelessConnected(bool),
     ButtonPressed(ControllerInput),
