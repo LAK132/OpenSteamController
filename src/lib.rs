@@ -10,6 +10,8 @@ pub mod virtual_controller;
 
 pub mod devices;
 
+pub mod multi_threading;
+
 pub static VERBOSE: OnceLock<bool> = OnceLock::new();
 
 #[macro_export]
