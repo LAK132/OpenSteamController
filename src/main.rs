@@ -108,6 +108,7 @@ fn main() {
 fn main() {
     use clap::ArgAction;
     use clap::{Arg, Command};
+    use open_steam_controller::devices::DeviceProperties;
     use open_steam_controller::virtual_controller::{AbstractVirtualController, VirtualController};
     use open_steam_controller::VERBOSE;
     use std::sync::mpsc;
@@ -150,65 +151,64 @@ fn main() {
     VERBOSE.set(matches.get_flag("verbose")).unwrap();
     let monochrome_icons = matches.get_flag("monochrome_icons");
 
-    let (tx, _rx) = mpsc::channel();
+    let (tx, rx) = mpsc::channel();
     let tray_handler = TrayHandler::new(StatusTray::new(tx, monochrome_icons));
-    loop {
-        use open_steam_controller::multi_threading::ControllerSender;
+    use open_steam_controller::multi_threading::ControllerSender;
 
-        let devices = loop {
-            match connect_compatible_devices() {
-                Ok(d) => break d,
-                Err(e) => {
-                    tray_handler.clear_state();
-                    eprintln!("Connecting failed with error: {e}");
-                }
+    let devices = loop {
+        match connect_compatible_devices() {
+            Ok(d) => break d,
+            Err(e) => {
+                tray_handler.clear_state();
+                eprintln!("Connecting failed with error: {e}");
             }
-            std::thread::sleep(Duration::from_secs(1));
-        };
+        }
+        std::thread::sleep(Duration::from_secs(1));
+    };
 
-        let _controller_tx = devices
-            .into_iter()
-            .map(|mut device| {
-                let (device_tx, mut device_rx) = multi_threading::create_controller_channel();
-                let mut virt_controller = VirtualController::new().unwrap();
-                std::thread::spawn(move || {
-                    // Run loop
-                    let mut run_counter = 0;
-                    loop {
-                        match if run_counter % 30 == 0 {
-                            device.active_refresh_state()
-                        } else {
-                            device.passive_refresh_state()
-                        } {
-                            Ok(input_events) => {
-                                for input_event in input_events {
-                                    if let Err(e) = virt_controller.send_input(input_event) {
-                                        debug_println!("{e}");
-                                    }
+    let mut controller_tx = devices
+        .into_iter()
+        .map(|mut device| {
+            let (device_tx, mut device_rx) = multi_threading::create_controller_channel();
+            let mut virt_controller = VirtualController::new().unwrap();
+            std::thread::spawn(move || {
+                // Run loop
+                let mut run_counter = 0;
+                loop {
+                    match if run_counter % 300 == 0 {
+                        device.active_refresh_state()
+                    } else {
+                        device.passive_refresh_state()
+                    } {
+                        Ok(input_events) => {
+                            for input_event in input_events {
+                                if let Err(e) = virt_controller.send_input(input_event) {
+                                    debug_println!("{e}");
                                 }
                             }
-                            Err(error) => {
-                                eprintln!("{error}");
-                                device_rx.try_update_state(&device.device_properties());
-                            }
-                        };
-                        device_rx.try_update_state(&device.device_properties());
-                        run_counter += 1;
-                    }
-                });
-                device_tx
-            })
-            .collect::<Vec<ControllerSender>>();
+                        }
+                        Err(error) => {
+                            eprintln!("{error}");
+                        }
+                    };
+                    device_rx.try_update_state(&device.device_properties());
+                    run_counter += 1;
+                }
+            });
+            device_tx
+        })
+        .collect::<Vec<ControllerSender>>();
 
-        /*
-        // Run loop
-        loop {
-            for command in rx.try_iter() {
-                let _ = devices[0].try_apply(command);
-            }
-
-            tray_handler.update(&devices[0].device_properties());
+    // Run loop
+    loop {
+        let first = rx.recv_timeout(Duration::from_millis(500));
+        for (device_id, command) in first.into_iter().chain(rx.try_iter()) {
+            controller_tx[device_id as usize].send_command(command);
         }
-        */
+        let a = &controller_tx
+            .iter()
+            .map(|d| d.get_latest_properties())
+            .collect::<Vec<DeviceProperties>>();
+        tray_handler.update(a);
     }
 }

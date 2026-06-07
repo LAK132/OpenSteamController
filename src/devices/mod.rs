@@ -103,7 +103,7 @@ fn connect_hid_devices() -> Result<Vec<DeviceBox>, DeviceError> {
             // 0-2 is first
             // 3-5 is second...
             .step_by(3)
-            .filter_map(|state| {
+            .filter_map(|mut state| {
                 eprintln!(
                     "Connecting to {}",
                     state
@@ -112,6 +112,7 @@ fn connect_hid_devices() -> Result<Vec<DeviceBox>, DeviceError> {
                         .clone()
                         .unwrap_or("???".to_string())
                 );
+                state.device_properties.connected = Some(true);
                 DEVICE_REGISTER
                     .iter()
                     .find(|e| {
@@ -628,15 +629,9 @@ pub trait Device {
     /// Only the battery level is actively queried because it is not communicated by the device on its own
     fn passive_refresh_state(&mut self) -> Result<Vec<ControllerInput>, DeviceError> {
         let mut pressed_buttons = vec![];
-        let mut request_active_refresh = false;
         if self.allow_passive_refresh() {
             if let Some(events) = self.wait_for_updates(PASSIVE_REFRESH_TIME_OUT) {
                 for event in events {
-                    // Some devices send this if they just turned on so we should refresh the
-                    // state
-                    if matches!(event, DeviceEvent::WirelessConnected(true)) {
-                        request_active_refresh = true;
-                    }
                     match event {
                         DeviceEvent::ButtonPressed(button) => pressed_buttons.push(button),
                         _ => self.get_device_state_mut().update_self_with_event(&event),
@@ -644,30 +639,6 @@ pub trait Device {
                 }
             }
         }
-        if let Some(batter_packet) = self.get_battery_packet() {
-            self.prepare_write();
-            self.get_device_state().write_hid_report(&batter_packet)?;
-            std::thread::sleep(RESPONSE_DELAY);
-            if let Some(events) = self.wait_for_updates(Duration::from_secs(1)) {
-                for event in events {
-                    // Some devices send this if they just turned on so we should refresh the
-                    // state
-                    if matches!(event, DeviceEvent::WirelessConnected(true)) {
-                        request_active_refresh = true;
-                    }
-                    match event {
-                        DeviceEvent::ButtonPressed(button) => pressed_buttons.push(button),
-                        _ => self.get_device_state_mut().update_self_with_event(&event),
-                    }
-                }
-            }
-        }
-        if request_active_refresh {
-            self.active_refresh_state()?;
-        }
-
-        self.get_device_state()
-            .write_hid_report(&SteamController::get_disable_lizard_mode_packet())?;
 
         Ok(pressed_buttons)
     }

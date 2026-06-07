@@ -2,9 +2,9 @@
 
 ## TODO
 - Multicontroller
-    - Linux each controller three interfaces
     - Windows one at 2 the other at 10
     - After starting threads still detect bluetouth and handle puck disconnect and reconnect
+    - Linux works windows not updated yet
 - Swap A/B
 - Display more information in tray
 - battery icon?
@@ -17,4 +17,3 @@
 - rumble / haptics
 - toggleble claiming of interfaces
 - AUR
-- Bluetooth very long latency

@@ -316,6 +316,8 @@ impl Device for SteamController {
     }
 
     fn active_refresh_state(&mut self) -> Result<Vec<ControllerInput>, super::DeviceError> {
+        self.get_device_state()
+            .write_hid_report(&SteamController::get_disable_lizard_mode_packet())?;
         Ok(Vec::new())
     }
 }

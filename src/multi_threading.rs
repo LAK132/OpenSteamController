@@ -6,7 +6,7 @@ use std::sync::{
 use crate::devices::{DeviceEvent, DeviceProperties};
 
 /// Used to receive commands form the front end
-/// and
+/// and updates state for front end
 pub struct ControllerReceiver {
     command_rx: Receiver<DeviceEvent>,
     state: Arc<Mutex<DeviceProperties>>,
