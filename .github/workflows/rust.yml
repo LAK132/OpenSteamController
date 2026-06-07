@@ -17,9 +17,9 @@ jobs:
   #       with:
   #         submodules: recursive
   #     - name: Build
-  #       run: cargo build --verbose --bin open-steam-controller-cli
+  #       run: cargo build --verbose
   #     - name: test
-  #       run:  cargo test --bin open-steam-controller-cli
+  #       run:  cargo test
 
   build-linux:
     runs-on: ubuntu-latest
