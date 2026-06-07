@@ -81,7 +81,6 @@ impl SteamController {
 
     /// Initially disables the "lizard mode" and constructs the controller
     pub fn new_from_state(state: DeviceState) -> Self {
-        state.write_hid_report(&SteamController::get_disable_lizard_mode_packet());
         Self { state }
     }
 
@@ -313,5 +312,9 @@ impl Device for SteamController {
 
     fn allow_passive_refresh(&mut self) -> bool {
         true
+    }
+
+    fn active_refresh_state(&mut self) -> Result<Vec<ControllerInput>, super::DeviceError> {
+        Ok(Vec::new())
     }
 }
