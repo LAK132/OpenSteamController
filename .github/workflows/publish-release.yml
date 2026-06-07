@@ -32,27 +32,27 @@ jobs:
           name: open-steam-controller_Linux
           path: dist/open-steam-controller_Linux.zip
 
-  build-macos:
-    runs-on: macos-latest
-    steps:
-      - uses: actions/checkout@v3
-        with: 
-          submodules: recursive
-      - name: Build release binaries
-        run: |
-          cargo build --release --bin open-steam-controller-cli
-          cargo build --release --bin open-steam-controller
-      - name: Create zip
-        run: |
-          mkdir -p dist
-          cp target/release/open-steam-controller dist/
-          cp target/release/open-steam-controller-cli dist/
-          cd dist && zip open-steam-controller_MacOS.zip open-steam-controller open-steam-controller-cli
-      - name: Upload zip artifact
-        uses: actions/upload-artifact@v4
-        with: 
-          name: open-steam-controller_MacOS
-          path: dist/open-steam-controller_MacOS.zip
+  # build-macos:
+  #   runs-on: macos-latest
+  #   steps:
+  #     - uses: actions/checkout@v3
+  #       with: 
+  #         submodules: recursive
+  #     - name: Build release binaries
+  #       run: |
+  #         cargo build --release --bin open-steam-controller-cli
+  #         cargo build --release --bin open-steam-controller
+  #     - name: Create zip
+  #       run: |
+  #         mkdir -p dist
+  #         cp target/release/open-steam-controller dist/
+  #         cp target/release/open-steam-controller-cli dist/
+  #         cd dist && zip open-steam-controller_MacOS.zip open-steam-controller open-steam-controller-cli
+  #     - name: Upload zip artifact
+  #       uses: actions/upload-artifact@v4
+  #       with: 
+  #         name: open-steam-controller_MacOS
+  #         path: dist/open-steam-controller_MacOS.zip
 
   build-windows:
     runs-on: windows-latest
@@ -91,11 +91,11 @@ jobs:
           name: open-steam-controller_Linux
           path: dist/
 
-      - name: Download MacOS zip artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: open-steam-controller_MacOS
-          path: dist/
+      # - name: Download MacOS zip artifact
+      #   uses: actions/download-artifact@v4
+      #   with:
+      #     name: open-steam-controller_MacOS
+      #     path: dist/
 
       - name: Download Windows zip artifact
         uses: actions/download-artifact@v4
@@ -109,7 +109,7 @@ jobs:
           prerelease: true
           files: |
             dist/open-steam-controller_Linux.zip
-            dist/open-steam-controller_MacOS.zip
+#           dist/open-steam-controller_MacOS.zip
             dist/open-steam-controller_Windows.zip
 
       - name: Compute checksums
