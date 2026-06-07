@@ -103,7 +103,6 @@ jobs:
           prerelease: true
           files: |
             dist/open-steam-controller_Linux.zip
-#           dist/open-steam-controller_MacOS.zip
             dist/open-steam-controller_Windows.zip
 
       - name: Compute checksums
