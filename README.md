@@ -6,7 +6,6 @@
     - Windows one at 2 the other at 10
 - Swap A/B
 - Display more information in tray
-- merge cli and tray app
 - battery icon?
 - windows icon
 - macos virtual controller
