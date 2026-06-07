@@ -615,7 +615,7 @@ pub trait Device {
         if responded {
             Ok(pressed_buttons)
         } else {
-            Ok(pressed_buttons)
+            Err(DeviceError::NoResponse())
         }
     }
 
