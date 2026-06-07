@@ -76,10 +76,7 @@ impl Controller {
 
 pub fn connect_compatible_devices() -> Result<Vec<Controller>, DeviceError> {
     match connect_hid_devices() {
-        Ok(devices) => Ok(devices
-            .into_iter()
-            .map(|device| Controller::Hid(device))
-            .collect()),
+        Ok(devices) => Ok(devices.into_iter().map(Controller::Hid).collect()),
         Err(error) => Err(error),
     }
 }
@@ -93,7 +90,7 @@ fn connect_hid_devices() -> Result<Vec<Box<dyn Device>>, DeviceError> {
         .iter()
         .flat_map(|e| e.vendor_ids.iter().copied())
         .collect();
-    let states = DeviceState::new(&all_product_ids, &all_vendor_ids).unwrap_or(Vec::new());
+    let states = DeviceState::new(&all_product_ids, &all_vendor_ids).unwrap_or_default();
     debug_println!("Found device selecting handler");
 
     // On Linux and MacOS we can just take the first
@@ -105,7 +102,7 @@ fn connect_hid_devices() -> Result<Vec<Box<dyn Device>>, DeviceError> {
             // 0-2 is first
             // 3-5 is second...
             .step_by(3)
-            .map(|state| {
+            .filter_map(|state| {
                 eprintln!(
                     "Connecting to {}",
                     state
@@ -120,13 +117,8 @@ fn connect_hid_devices() -> Result<Vec<Box<dyn Device>>, DeviceError> {
                         e.vendor_ids.contains(&state.device_properties.vendor_id)
                             && e.product_ids.contains(&state.device_properties.product_id)
                     })
-                    .and_then(|entry| {
-                        let device = (entry.factory)(state);
-                        Some(device)
-                    })
+                    .map(|entry| (entry.factory)(state))
             })
-            .filter(|device| device.is_some())
-            .map(|device| device.expect("Previous filter should have removed all None"))
             .collect();
 
         if devices.is_empty() {

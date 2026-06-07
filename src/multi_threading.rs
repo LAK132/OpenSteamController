@@ -7,7 +7,7 @@ use crate::devices::{DeviceEvent, DeviceProperties};
 
 /// Used to receive commands form the front end
 /// and
-struct ControllerReceiver {
+pub struct ControllerReceiver {
     command_rx: Receiver<DeviceEvent>,
     state: Arc<Mutex<DeviceProperties>>,
 }
@@ -28,7 +28,7 @@ impl ControllerReceiver {
 
 /// Used to send commands to a controller thread
 /// and update the state for the front end
-struct ControllerSender {
+pub struct ControllerSender {
     command_tx: Sender<DeviceEvent>,
     state: Arc<Mutex<DeviceProperties>>,
 }
