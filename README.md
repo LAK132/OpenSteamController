@@ -17,3 +17,4 @@
 - rumble / haptics
 - toggleble claiming of interfaces
 - AUR
+- captrue whether steam can turn of controller
