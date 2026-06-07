@@ -8,8 +8,9 @@ use crate::{
 use bitflags::{bitflags, bitflags_match};
 
 pub const VENDOR_IDS: [u16; 1] = [0x28de];
-pub const PRODUCT_IDS: [u16; 2] = [
-    0x1302, // direct connection to controller
+pub const PRODUCT_IDS: [u16; 3] = [
+    0x1302, // connection via cable
+    0x1303, // connection via Bluetooth
     0x1304, // connection via puck
 ];
 

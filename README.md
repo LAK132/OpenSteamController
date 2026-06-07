@@ -16,3 +16,4 @@
 - rumble / haptics
 - toggleble claiming of interfaces
 - AUR
+- Bluetooth very long latency
