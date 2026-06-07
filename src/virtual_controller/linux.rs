@@ -160,7 +160,14 @@ impl VirtualController {
 impl AbstractVirtualController for VirtualController {
     fn send_input(&mut self, input: ControllerInput) -> anyhow::Result<()> {
         match input {
+            ControllerInput::LeftTrackpad(_, _, _) => {
+                return Ok(());
+            }
+            ControllerInput::RightTrackpad(_, _, _) => {
+                return Ok(());
+            }
             ControllerInput::RightJoyStick(x, y) => {
+                let y = y.neg();
                 self.device.position(
                     &uinput::event::absolute::Position::RX,
                     if x.is_sign_positive() {
@@ -179,6 +186,7 @@ impl AbstractVirtualController for VirtualController {
                 )?;
             }
             ControllerInput::LeftJoyStick(x, y) => {
+                let y = y.neg();
                 self.device.position(
                     &uinput::event::absolute::Position::X,
                     if x.is_sign_positive() {
