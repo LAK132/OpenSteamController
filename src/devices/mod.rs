@@ -127,7 +127,7 @@ fn connect_hid_device() -> Result<Box<dyn Device>, DeviceError> {
     #[cfg(target_os = "windows")]
     {
         let mut device = None;
-        for state in states {
+        for (i, state) in states.into_iter().enumerate() {
             eprintln!(
                 "Try to connect to {}",
                 state
@@ -145,24 +145,19 @@ fn connect_hid_device() -> Result<Box<dyn Device>, DeviceError> {
                 .ok_or(DeviceError::NoDeviceFound())?;
 
             let mut test_device = (entry.factory)(state);
-            test_device.init_capabilities();
 
-            let probe_packet = test_device
-                .get_query_packets()
-                .into_iter()
-                .next()
-                .expect("Why is there a device without packets ???");
+            let mut buff = [0u8; 64];
+            let bytes_read = test_device
+                .get_device_state_mut()
+                .hid_device
+                .read_timeout(&mut buff, 500);
+            debug_println!("reading {i} {:?} {:?}", bytes_read, &buff);
 
-            test_device.prepare_write();
-            if let Err(_e) = test_device
-                .get_device_state()
-                .write_hid_report(&probe_packet)
-            {
-                debug_println!("Failed to open: {_e:?}");
-                continue;
-            } else {
-                device = Some(test_device);
-                break;
+            device = Some(test_device);
+            if let Ok(b) = bytes_read {
+                if b > 0 {
+                    break;
+                }
             }
         }
         device.ok_or(DeviceError::NoDeviceFound())
@@ -620,7 +615,7 @@ pub trait Device {
         if responded {
             Ok(pressed_buttons)
         } else {
-            Err(DeviceError::NoResponse())
+            Ok(pressed_buttons)
         }
     }
 
@@ -667,7 +662,7 @@ pub trait Device {
         }
 
         self.get_device_state()
-            .write_hid_report(&SteamController::get_disable_lizard_mode_packet());
+            .write_hid_report(&SteamController::get_disable_lizard_mode_packet())?;
 
         Ok(pressed_buttons)
     }

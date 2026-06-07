@@ -45,7 +45,7 @@ bitflags! {
         const Y                 = 1 <<  3;
         const Menu              = 1 <<  4;
         const ThumbRight        = 1 <<  5;
-        const Select            = 1 <<  6;
+        const Start             = 1 <<  6;
         const R4                = 1 <<  7;
         const R5                = 1 <<  8;
         const R1                = 1 <<  9;
@@ -53,7 +53,7 @@ bitflags! {
         const DpadRight         = 1 << 11;
         const DpadLeft          = 1 << 12;
         const DpadUp            = 1 << 13;
-        const Start             = 1 << 14;
+        const Select            = 1 << 14;
         const ThumbLeft         = 1 << 15;
         const Steam             = 1 << 16;
         const L4                = 1 << 17;
@@ -130,6 +130,7 @@ impl SteamController {
         changes
             .iter()
             .map(|button| {
+                // the `as u8 as f32` convert bools to 0.0 or 1.0
                 bitflags_match!(button, {
                     Button::A =>                ControllerInput::A(states.contains(Button::A)),
                     Button::B =>                ControllerInput::B(states.contains(Button::B)),
@@ -139,7 +140,7 @@ impl SteamController {
                     Button::ThumbRight =>       ControllerInput::RightThumb(states.contains(Button::ThumbRight)),
                     Button::Select =>           ControllerInput::Select(states.contains(Button::Select)),
                     Button::R4 =>               ControllerInput::RightBumper(states.contains(Button::R4)), // TODO
-                    Button::R5 =>               ControllerInput::RightTrigger(1.0), // TODO
+                    Button::R5 =>               ControllerInput::RightTrigger(states.contains(Button::R2) as u8 as f32), // TODO
                     Button::R1 =>               ControllerInput::RightBumper(states.contains(Button::R1)),
                     Button::DpadDown =>         ControllerInput::Down(states.contains(Button::DpadDown)),
                     Button::DpadRight =>        ControllerInput::Right(states.contains(Button::DpadRight)),
@@ -149,16 +150,16 @@ impl SteamController {
                     Button::ThumbLeft =>        ControllerInput::LeftThumb(states.contains(Button::ThumbLeft)),
                     Button::Steam =>            ControllerInput::Home(states.contains(Button::Steam)),
                     Button::L4 =>               ControllerInput::LeftBumper(states.contains(Button::L4)), // TODO
-                    Button::L5 =>               ControllerInput::LeftTrigger(1.0), // TODO
+                    Button::L5 =>               ControllerInput::LeftTrigger(states.contains(Button::L2) as u8 as f32), // TODO
                     Button::L1 =>               ControllerInput::LeftBumper(states.contains(Button::L1)), // TODO
                     Button::ThumbRightTouch =>  ControllerInput::RightThumb(states.contains(Button::ThumbRightTouch)), // TODO
                     Button::PadRightTouch =>    ControllerInput::RightThumb(states.contains(Button::PadRightTouch)), // TODO
                     Button::PadRightClick =>    ControllerInput::RightThumb(states.contains(Button::PadRightClick)), // TODO
-                    Button::R2 =>               ControllerInput::RightTrigger(1.0),
+                    Button::R2 =>               ControllerInput::RightTrigger(states.contains(Button::R2) as u8 as f32),
                     Button::ThumbLeftTouch =>   ControllerInput::LeftThumb(states.contains(Button::ThumbLeftTouch)), //TODO
                     Button::PadLeftTouch =>     ControllerInput::LeftThumb(states.contains(Button::PadLeftTouch)),   // TODO
                     Button::PadLeftClick =>     ControllerInput::LeftThumb(states.contains(Button::PadLeftClick)),   // TODO
-                    Button::L2 =>               ControllerInput::LeftTrigger(1.0),
+                    Button::L2 =>               ControllerInput::LeftTrigger(states.contains(Button::L2) as u8 as f32),
                     Button::GripRight =>        ControllerInput::RightThumb(states.contains(Button::GripRight)), // TODO
                     Button::GripLeft =>         ControllerInput::LeftThumb(states.contains(Button::GripLeft)),   // TODO
                     _ => panic!("Undefined Button!"),
@@ -176,14 +177,14 @@ impl SteamController {
     /// Converts four bytes of data into two axes between -1.0 and 1.0
     fn convert_analog_2d(input: [u8; 4]) -> (f32, f32) {
         let x = Self::convert_analog(input[0..2].try_into().unwrap());
-        let y = -Self::convert_analog(input[2..4].try_into().unwrap());
+        let y = Self::convert_analog(input[2..4].try_into().unwrap());
         (x, y)
     }
 
     /// Converts six bytes of data into two three between -1.0 and 1.0
     fn convert_analog_3d(input: [u8; 6]) -> (f32, f32, f32) {
         let x = Self::convert_analog(input[0..2].try_into().unwrap());
-        let y = -Self::convert_analog(input[2..4].try_into().unwrap());
+        let y = Self::convert_analog(input[2..4].try_into().unwrap());
         let z = Self::convert_analog(input[4..6].try_into().unwrap());
         (x, y, z)
     }

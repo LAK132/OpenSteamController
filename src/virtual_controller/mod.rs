@@ -4,6 +4,12 @@ pub mod linux;
 #[allow(unused_imports)]
 pub use linux::VirtualController;
 
+#[cfg(target_os = "windows")]
+pub mod windows;
+#[cfg(target_os = "windows")]
+#[allow(unused_imports)]
+pub use windows::VirtualController;
+
 #[derive(Debug, Clone, Copy, PartialEq)]
 /// Backed independent controller inputs
 pub enum ControllerInput {
