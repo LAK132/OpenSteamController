@@ -658,7 +658,7 @@ pub trait Device {
         }
 
         self.get_device_state()
-            .write_hid_report(&SteamController::get_disable_lizard_mode_packet());
+            .write_hid_report(&SteamController::get_disable_lizard_mode_packet())?;
 
         Ok(pressed_buttons)
     }
