@@ -1,10 +1,11 @@
 # OpenSteamController
 
-## Improtatn TODOS
+## Important TODO
 - how fast does a thread witout a controller spin
 - only register virtual controller for active controllers
 - windwos tooltip
 - dont map unknown controller events to sticks
+- windows icon
 
 ## TODO
 - Multicontroller
@@ -15,7 +16,6 @@
 - Display more information in tray
   - e.g. signal strenght
 - battery icon?
-- windows icon
 - macos virtual controller
 - map special inputs linux
 - gyro read

@@ -131,7 +131,7 @@ fn connect_hid_devices() -> Result<Vec<DeviceBox>, DeviceError> {
     // On Windows we have to check which interface can be used
     #[cfg(target_os = "windows")]
     {
-        let mut device = None;
+        let mut devices = Vec::new();
         for (i, state) in states.into_iter().enumerate() {
             eprintln!(
                 "Try to connect to {}",
@@ -158,14 +158,15 @@ fn connect_hid_devices() -> Result<Vec<DeviceBox>, DeviceError> {
                 .read_timeout(&mut buff, 500);
             debug_println!("reading {i} {:?} {:?}", bytes_read, &buff);
 
-            device = Some(test_device);
             if let Ok(b) = bytes_read {
-                if b > 0 {
-                    break;
-                }
+                devices.push(test_device);
             }
         }
-        device.ok_or(DeviceError::NoDeviceFound())
+        if devices.is_empty() {
+            Err(DeviceError::NoDeviceFound())
+        } else {
+            Ok(devices)
+        }
     }
 }
 

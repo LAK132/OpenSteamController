@@ -14,6 +14,7 @@ mod tray_battery_icon_state;
 #[cfg(not(target_os = "linux"))]
 fn main() {
     use clap::ArgAction;
+    use open_steam_controller::multi_threading::ControllerSender;
     use std::sync::mpsc;
 
     use crate::status_tray_not_linux::TrayApp;
@@ -21,83 +22,94 @@ fn main() {
     use open_steam_controller::virtual_controller::AbstractVirtualController;
     use open_steam_controller::VERBOSE;
     use open_steam_controller::{
-        devices::connect_compatible_device, virtual_controller::VirtualController,
+        devices::connect_compatible_devices, virtual_controller::VirtualController,
     };
     use winit::event_loop::{ControlFlow, EventLoop, EventLoopProxy};
 
-    let event_loop: EventLoop<Option<DeviceProperties>> =
+    let event_loop: EventLoop<Vec<DeviceProperties>> =
         EventLoop::with_user_event().build().unwrap();
-    let proxy: EventLoopProxy<Option<DeviceProperties>> = event_loop.create_proxy();
+    let proxy: EventLoopProxy<Vec<DeviceProperties>> = event_loop.create_proxy();
     event_loop.set_control_flow(ControlFlow::Wait);
 
-    let (tx, rx) = mpsc::channel::<DeviceEvent>();
-    let mut virt_controller = VirtualController::new().unwrap();
+    use std::time::Duration;
 
-    std::thread::spawn(move || {
-        use std::time::Duration;
+    use clap::{Arg, Command};
 
-        use clap::{Arg, Command};
+    let matches = Command::new(env!("CARGO_PKG_NAME"))
+        .version(env!("CARGO_PKG_VERSION"))
+        .disable_version_flag(false)
+        .author(env!("CARGO_PKG_AUTHORS"))
+        .about("A tray application for monitoring the new Steam Controller")
+        .arg(
+            Arg::new("verbose")
+                .long("verbose")
+                .short('v')
+                .action(ArgAction::SetTrue)
+                .required(false)
+                .help("Use verbose output "),
+        )
+        .get_matches();
 
-        let matches = Command::new(env!("CARGO_PKG_NAME"))
-            .version(env!("CARGO_PKG_VERSION"))
-            .disable_version_flag(false)
-            .author(env!("CARGO_PKG_AUTHORS"))
-            .about("A tray application for monitoring the new Steam Controller")
-            .arg(
-                Arg::new("verbose")
-                    .long("verbose")
-                    .short('v')
-                    .action(ArgAction::SetTrue)
-                    .required(false)
-                    .help("Use verbose output "),
-            )
-            .get_matches();
+    VERBOSE.set(matches.get_flag("verbose")).unwrap();
 
-        VERBOSE.set(matches.get_flag("verbose")).unwrap();
+    let devices = loop {
+        match connect_compatible_devices() {
+            Ok(d) => break d,
+            Err(e) => {
+                let _ = proxy.send_event(Vec::new());
+                eprintln!("Connecting failed with error: {e}");
+            }
+        }
+        std::thread::sleep(Duration::from_secs(1));
+    };
 
-        loop {
-            let mut device = loop {
-                match connect_compatible_device() {
-                    Ok(d) => break d,
-                    Err(e) => {
-                        let _ = proxy.send_event(None);
-                        eprintln!("Connecting failed with error: {e}")
-                    }
-                }
-                std::thread::sleep(Duration::from_secs(1));
-            };
-
-            // Run loop
-            let mut run_counter = 0;
-            loop {
-                match if run_counter % 30 != 0 {
-                    device.active_refresh_state()
-                } else {
-                    device.passive_refresh_state()
-                } {
-                    Ok(input_events) => {
-                        for input_event in input_events {
-                            if let Err(e) = virt_controller.send_input(input_event) {
-                                debug_println!("{e}");
+    let mut controller_tx = devices
+        .into_iter()
+        .map(|mut device| {
+            let (device_tx, mut device_rx) = multi_threading::create_controller_channel();
+            let mut virt_controller = VirtualController::new().unwrap();
+            std::thread::spawn(move || {
+                // Run loop
+                let mut run_counter = 0;
+                loop {
+                    match if run_counter % 300 == 0 {
+                        device.active_refresh_state()
+                    } else {
+                        device.passive_refresh_state()
+                    } {
+                        Ok(input_events) => {
+                            for input_event in input_events {
+                                if let Err(e) = virt_controller.send_input(input_event) {
+                                    debug_println!("{e}");
+                                }
                             }
                         }
-                    }
-                    Err(error) => {
-                        eprintln!("{error}");
-                        let _ = proxy.send_event(Some(device.device_properties()));
-                        break; // try to reconnect
-                    }
-                };
-
-                for command in rx.try_iter() {
-                    let _ = device.try_apply(command);
-                    std::thread::sleep(open_steam_controller::devices::RESPONSE_DELAY);
-                    let _ = device.active_refresh_state();
+                        Err(error) => {
+                            eprintln!("{error}");
+                        }
+                    };
+                    device_rx.try_update_state(&device.device_properties());
+                    run_counter += 1;
                 }
+            });
+            device_tx
+        })
+        .collect::<Vec<ControllerSender>>();
 
-                let _ = proxy.send_event(Some(device.device_properties()));
-                run_counter += 1;
+    let (tx, rx) = mpsc::channel::<(u32, DeviceEvent)>();
+
+    std::thread::spawn(move || {
+        // Run loop
+        loop {
+            let first = rx.recv_timeout(Duration::from_millis(500));
+            for (device_id, command) in first.into_iter().chain(rx.try_iter()) {
+                controller_tx[device_id as usize].send_command(command);
             }
+            let state = controller_tx
+                .iter()
+                .map(|d| d.get_latest_properties())
+                .collect::<Vec<DeviceProperties>>();
+            let _ = proxy.send_event(state);
         }
     });
 
@@ -109,6 +121,7 @@ fn main() {
     use clap::ArgAction;
     use clap::{Arg, Command};
     use open_steam_controller::devices::DeviceProperties;
+    use open_steam_controller::multi_threading::ControllerSender;
     use open_steam_controller::virtual_controller::{AbstractVirtualController, VirtualController};
     use open_steam_controller::VERBOSE;
     use std::sync::mpsc;
@@ -153,7 +166,6 @@ fn main() {
 
     let (tx, rx) = mpsc::channel();
     let tray_handler = TrayHandler::new(StatusTray::new(tx, monochrome_icons));
-    use open_steam_controller::multi_threading::ControllerSender;
 
     let devices = loop {
         match connect_compatible_devices() {
