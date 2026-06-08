@@ -2,7 +2,6 @@
 
 ## Important TODO
 - how fast does a thread witout a controller spin
-- only register virtual controller for active controllers
 - dont map unknown controller events to sticks
 
 ## TODO
