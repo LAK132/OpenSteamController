@@ -1,7 +1,6 @@
 # OpenSteamController
 
 ## Important TODO
-- how fast does a thread witout a controller spin
 - dont map unknown controller events to sticks
 
 ## TODO
