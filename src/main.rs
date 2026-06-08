@@ -1,5 +1,6 @@
 use open_steam_controller::debug_println;
-use open_steam_controller::multi_threading;
+use open_steam_controller::devices::Controller;
+use open_steam_controller::multi_threading::{self, ControllerReceiver};
 
 #[cfg(target_os = "linux")]
 mod status_tray;
@@ -17,12 +18,9 @@ fn main() {
     use std::sync::mpsc;
 
     use crate::status_tray_not_linux::TrayApp;
+    use open_steam_controller::devices::connect_compatible_devices;
     use open_steam_controller::devices::{DeviceEvent, DeviceProperties};
-    use open_steam_controller::virtual_controller::AbstractVirtualController;
     use open_steam_controller::VERBOSE;
-    use open_steam_controller::{
-        devices::connect_compatible_devices, virtual_controller::VirtualController,
-    };
     use winit::event_loop::{ControlFlow, EventLoop, EventLoopProxy};
 
     let event_loop: EventLoop<Vec<DeviceProperties>> =
@@ -64,32 +62,10 @@ fn main() {
 
     let mut controller_tx = devices
         .into_iter()
-        .map(|mut device| {
-            let (device_tx, mut device_rx) = multi_threading::create_controller_channel();
-            let mut virt_controller = VirtualController::new().unwrap();
+        .map(|device| {
+            let (device_tx, device_rx) = multi_threading::create_controller_channel();
             std::thread::spawn(move || {
-                // Run loop
-                let mut run_counter = 0;
-                loop {
-                    match if run_counter % 300 == 0 {
-                        device.active_refresh_state()
-                    } else {
-                        device.passive_refresh_state()
-                    } {
-                        Ok(input_events) => {
-                            for input_event in input_events {
-                                if let Err(e) = virt_controller.send_input(input_event) {
-                                    debug_println!("{e}");
-                                }
-                            }
-                        }
-                        Err(error) => {
-                            eprintln!("{error}");
-                        }
-                    };
-                    device_rx.try_update_state(&device.device_properties());
-                    run_counter += 1;
-                }
+                controller_handler(device, device_rx);
             });
             device_tx
         })
@@ -115,6 +91,49 @@ fn main() {
     event_loop.run_app(&mut TrayApp::new(tx)).unwrap();
 }
 
+fn controller_handler(mut device: Controller, mut device_rx: ControllerReceiver) {
+    use open_steam_controller::virtual_controller::{AbstractVirtualController, VirtualController};
+    let mut virt_controller: Option<VirtualController> = None;
+    // Run loop
+    let mut run_counter = 0;
+    loop {
+        match if run_counter % 300 == 0 {
+            device.active_refresh_state()
+        } else {
+            device.passive_refresh_state()
+        } {
+            Ok(input_events) => {
+                // Let the virtual controllers connection state mirror the real
+                // controller
+                if device.device_properties().connected == Some(false) && virt_controller.is_some()
+                {
+                    virt_controller = None;
+                } else if device.device_properties().connected == Some(true)
+                    && virt_controller.is_none()
+                {
+                    match VirtualController::new() {
+                        Ok(vc) => virt_controller = Some(vc),
+                        Err(e) => eprintln!("Failed to create virtual controller {e}"),
+                    }
+                }
+
+                for input_event in input_events {
+                    if let Some(virt_controller) = &mut virt_controller {
+                        if let Err(e) = virt_controller.send_input(input_event) {
+                            debug_println!("{e}");
+                        }
+                    }
+                }
+            }
+            Err(error) => {
+                eprintln!("{error}");
+            }
+        };
+        device_rx.try_update_state(&device.device_properties());
+        run_counter += 1;
+    }
+}
+
 #[cfg(target_os = "linux")]
 fn main() {
     use clap::ArgAction;
@@ -122,7 +141,6 @@ fn main() {
     use open_steam_controller::devices::connect_compatible_devices;
     use open_steam_controller::devices::DeviceProperties;
     use open_steam_controller::multi_threading::ControllerSender;
-    use open_steam_controller::virtual_controller::{AbstractVirtualController, VirtualController};
     use open_steam_controller::VERBOSE;
     use std::sync::mpsc;
     use std::time::Duration;
@@ -180,32 +198,10 @@ fn main() {
 
     let mut controller_tx = devices
         .into_iter()
-        .map(|mut device| {
-            let (device_tx, mut device_rx) = multi_threading::create_controller_channel();
-            let mut virt_controller = VirtualController::new().unwrap();
+        .map(|device| {
+            let (device_tx, device_rx) = multi_threading::create_controller_channel();
             std::thread::spawn(move || {
-                // Run loop
-                let mut run_counter = 0;
-                loop {
-                    match if run_counter % 300 == 0 {
-                        device.active_refresh_state()
-                    } else {
-                        device.passive_refresh_state()
-                    } {
-                        Ok(input_events) => {
-                            for input_event in input_events {
-                                if let Err(e) = virt_controller.send_input(input_event) {
-                                    debug_println!("{e}");
-                                }
-                            }
-                        }
-                        Err(error) => {
-                            eprintln!("{error}");
-                        }
-                    };
-                    device_rx.try_update_state(&device.device_properties());
-                    run_counter += 1;
-                }
+                controller_handler(device, device_rx);
             });
             device_tx
         })

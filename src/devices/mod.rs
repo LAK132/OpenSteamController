@@ -21,7 +21,7 @@ pub fn format_int_value(value: u8, suffix: &str) -> String {
     }
 }
 
-type DeviceBox = Box<dyn Device + Send>;
+pub type DeviceBox = Box<dyn Device + Send>;
 type DeviceFactory = fn(DeviceState) -> DeviceBox;
 
 struct DeviceEntry {
