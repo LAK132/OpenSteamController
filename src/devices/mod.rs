@@ -103,7 +103,7 @@ fn connect_hid_devices() -> Result<Vec<DeviceBox>, DeviceError> {
             // 0-2 is first
             // 3-5 is second...
             .step_by(3)
-            .filter_map(|mut state| {
+            .filter_map(|state| {
                 eprintln!(
                     "Connecting to {}",
                     state
@@ -112,7 +112,6 @@ fn connect_hid_devices() -> Result<Vec<DeviceBox>, DeviceError> {
                         .clone()
                         .unwrap_or("???".to_string())
                 );
-                state.device_properties.connected = Some(true);
                 DEVICE_REGISTER
                     .iter()
                     .find(|e| {
