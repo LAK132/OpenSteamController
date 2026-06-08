@@ -4,7 +4,6 @@
 - how fast does a thread witout a controller spin
 - only register virtual controller for active controllers
 - dont map unknown controller events to sticks
-- windows icon
 
 ## TODO
 - Multicontroller
@@ -23,3 +22,6 @@
 - rumble / haptics
 - toggleble claiming of interfaces
 - AUR
+
+## Attribution
+<a href="https://www.flaticon.com/free-icons/game-boy-advance" title="game boy advance icons">Game boy advance icons created by Freepik - Flaticon</a>

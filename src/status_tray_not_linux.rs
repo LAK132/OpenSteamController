@@ -39,7 +39,7 @@ const WINDOWS_ICON_SIZE: u32 = 16;
 #[cfg(target_os = "windows")]
 fn create_default_tray_icon() -> tray_icon::Icon {
     // embed a controller .ico/.png at compile time — no file needed at runtime
-    let bytes = include_bytes!("../assets/headphone.png");
+    let bytes = include_bytes!("../assets/games.png");
     let img = image::load_from_memory(bytes).unwrap().into_rgba8();
     let (w, h) = img.dimensions();
     tray_icon::Icon::from_rgba(img.into_raw(), w, h).unwrap()
