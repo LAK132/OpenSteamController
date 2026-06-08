@@ -224,6 +224,8 @@ impl SteamController {
     }
 
     fn handle_status(response: &[u8; 16]) -> Vec<DeviceEvent> {
+        // implicit connection event, because receiving data == controller is connected
+        let connected_event = DeviceEvent::WirelessConnected(true);
         let charge_event = DeviceEvent::Charging(match response[1] {
             1 => ChargingStatus::NotCharging,
             3 => ChargingStatus::Charging,
@@ -250,7 +252,7 @@ impl SteamController {
         // 13 unknown; values 56-248
         // 14 unknown; values 98-104
         // 15.. unused? only zeroes
-        vec![charge_event, battery_event]
+        vec![charge_event, battery_event, connected_event]
     }
 
     fn handle_connection(response: u8) -> Option<DeviceEvent> {
@@ -306,7 +308,6 @@ impl Device for SteamController {
             }
             RESPONSE_CONNECTION_EVENT => {
                 if let Some(event) = SteamController::handle_connection(response[1]) {
-                    debug_println!("Event found: {event:?}");
                     events.push(event);
                 }
             }
