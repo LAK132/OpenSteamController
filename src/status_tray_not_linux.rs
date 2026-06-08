@@ -376,30 +376,30 @@ impl TrayApp {
         ));
 
         #[cfg(target_os = "windows")]
-        let _ = tray.set_tooltip(Some(
-            device_properties
+        {
+            let mut tool_tip = device_properties
                 .iter()
                 .enumerate()
-                .filter(|(_,d)| d.connected.unwrap_or(false))
+                .filter(|(_, d)| d.connected.unwrap_or(false))
                 .map(|(device_id, property)| {
                     format!(
                         "Controller: {device_id}\n{}",
-                        if property.connected.unwrap_or(false) {
-                            property
-                                .to_string_with_padding(0)
-                                .lines()
-                                .take(2)
-                                .filter(|l| !l.contains("Unknown"))
-                                .collect::<Vec<&str>>()
-                                .join("\n")
-                        } else {
-                            CONTROLLER_NOT_CONNECTED.to_string()
-                        }
+                        property
+                            .to_string_with_padding(0)
+                            .lines()
+                            .take(2)
+                            .filter(|l| !l.contains("Unknown"))
+                            .collect::<Vec<&str>>()
+                            .join("\n")
                     )
                 })
                 .collect::<Vec<String>>()
-                .join("\n\n"),
-        ));
+                .join("\n\n");
+            if tool_tip.is_empty() {
+                tool_tip = CONTROLLER_NOT_CONNECTED.to_string();
+            }
+            let _ = tray.set_tooltip(Some(tool_tip));
+        }
 
         #[cfg(target_os = "macos")]
         if let Some(battery_level) = device_properties.battery_level {
@@ -411,11 +411,11 @@ impl TrayApp {
             let _ = menu.append(&menu_item);
 
             if !device_properties.connected.unwrap_or(false) {
-                let _ = tray.set_tooltip(Some(CONTROLLER_NOT_CONNECTED));
                 #[cfg(target_os = "macos")]
                 tray.set_title(Some(&format!("🎧?")));
                 let status_item = MenuItem::new(CONTROLLER_NOT_CONNECTED, false, None);
                 menu.append(&status_item).unwrap();
+                menu.append(&PredefinedMenuItem::separator()).unwrap();
 
                 continue;
             }
@@ -515,9 +515,8 @@ impl TrayApp {
                     }
                 }
             }
+            menu.append(&PredefinedMenuItem::separator()).unwrap();
         }
-
-        menu.append(&PredefinedMenuItem::separator()).unwrap();
 
         #[cfg(target_os = "windows")]
         {

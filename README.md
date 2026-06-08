@@ -3,7 +3,6 @@
 ## Important TODO
 - how fast does a thread witout a controller spin
 - only register virtual controller for active controllers
-- windwos tooltip
 - dont map unknown controller events to sticks
 - windows icon
 
