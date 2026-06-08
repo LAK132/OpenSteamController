@@ -1,13 +1,19 @@
 # OpenSteamController
 
+## Improtatn TODOS
+- how fast does a thread witout a controller spin
+- only register virtual controller for active controllers
+- windwos tooltip
+- dont map unknown controller events to sticks
+
 ## TODO
 - Multicontroller
     - Windows one at 2 the other at 10
     - After starting threads still detect bluetouth and handle puck disconnect and reconnect
     - Puck needs to be ignores on linux; shows up & sends connected when controller is docked
-    - Linux works windows not updated yet
 - Swap A/B
 - Display more information in tray
+  - e.g. signal strenght
 - battery icon?
 - windows icon
 - macos virtual controller
