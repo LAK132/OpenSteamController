@@ -119,6 +119,7 @@ fn main() {
 fn main() {
     use clap::ArgAction;
     use clap::{Arg, Command};
+    use open_steam_controller::devices::connect_compatible_devices;
     use open_steam_controller::devices::DeviceProperties;
     use open_steam_controller::multi_threading::ControllerSender;
     use open_steam_controller::virtual_controller::{AbstractVirtualController, VirtualController};
