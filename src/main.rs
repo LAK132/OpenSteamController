@@ -1,5 +1,4 @@
 use open_steam_controller::debug_println;
-use open_steam_controller::devices::connect_compatible_devices;
 use open_steam_controller::multi_threading;
 
 #[cfg(target_os = "linux")]

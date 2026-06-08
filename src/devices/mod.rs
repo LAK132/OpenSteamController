@@ -158,7 +158,7 @@ fn connect_hid_devices() -> Result<Vec<DeviceBox>, DeviceError> {
                 .read_timeout(&mut buff, 500);
             debug_println!("reading {i} {:?} {:?}", bytes_read, &buff);
 
-            if let Ok(b) = bytes_read {
+            if let Ok(_b) = bytes_read {
                 devices.push(test_device);
             }
         }
