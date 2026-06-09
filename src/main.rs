@@ -1,3 +1,6 @@
+use std::sync::atomic::AtomicBool;
+use std::sync::Arc;
+
 use open_steam_controller::debug_println;
 use open_steam_controller::devices::Controller;
 use open_steam_controller::multi_threading::{self, ControllerReceiver};
@@ -91,13 +94,19 @@ fn main() {
     event_loop.run_app(&mut TrayApp::new(tx)).unwrap();
 }
 
-fn controller_handler(mut device: Controller, mut device_rx: ControllerReceiver) {
+/// handles packets from a controller and is responsible for generating virtual controller inputs
+/// the exit atomic is used for termination
+fn controller_handler(
+    mut device: Controller,
+    mut device_rx: ControllerReceiver,
+    exit: Arc<AtomicBool>,
+) {
     use open_steam_controller::virtual_controller::{AbstractVirtualController, VirtualController};
     let mut virt_controller: Option<VirtualController> = None;
     // Run loop
     let mut run_counter = 0;
     loop {
-        match if run_counter % 300 == 0 {
+        match if run_counter % 300 == 0 && device.device_properties().connected == Some(true) {
             device.active_refresh_state()
         } else {
             device.passive_refresh_state()
@@ -126,11 +135,17 @@ fn controller_handler(mut device: Controller, mut device_rx: ControllerReceiver)
                 }
             }
             Err(error) => {
+                device.device_properties().connected = None;
+                device_rx.try_update_state(&device.device_properties());
                 eprintln!("{error}");
+                return;
             }
         };
         device_rx.try_update_state(&device.device_properties());
         run_counter += 1;
+        if exit.load(std::sync::atomic::Ordering::Relaxed) {
+            return;
+        }
     }
 }
 
@@ -139,10 +154,14 @@ fn main() {
     use clap::ArgAction;
     use clap::{Arg, Command};
     use open_steam_controller::devices::connect_compatible_devices;
+    use open_steam_controller::devices::count_compatible_devices;
     use open_steam_controller::devices::DeviceProperties;
     use open_steam_controller::multi_threading::ControllerSender;
     use open_steam_controller::VERBOSE;
+    use std::sync::atomic::AtomicBool;
     use std::sync::mpsc;
+    use std::sync::Arc;
+    use std::thread::JoinHandle;
     use std::time::Duration;
 
     use status_tray::{StatusTray, TrayHandler};
@@ -184,39 +203,63 @@ fn main() {
 
     let (tx, rx) = mpsc::channel();
     let tray_handler = TrayHandler::new(StatusTray::new(tx, monochrome_icons));
-
-    let devices = loop {
-        match connect_compatible_devices() {
-            Ok(d) => break d,
-            Err(e) => {
-                tray_handler.clear_state();
-                eprintln!("Connecting failed with error: {e}");
-            }
-        }
-        std::thread::sleep(Duration::from_secs(1));
-    };
-
-    let mut controller_tx = devices
-        .into_iter()
-        .map(|device| {
-            let (device_tx, device_rx) = multi_threading::create_controller_channel();
-            std::thread::spawn(move || {
-                controller_handler(device, device_rx);
-            });
-            device_tx
-        })
-        .collect::<Vec<ControllerSender>>();
-
-    // Run loop
     loop {
-        let first = rx.recv_timeout(Duration::from_millis(500));
-        for (device_id, command) in first.into_iter().chain(rx.try_iter()) {
-            controller_tx[device_id as usize].send_command(command);
+        let exit = Arc::new(AtomicBool::new(false));
+
+        let devices = loop {
+            match connect_compatible_devices() {
+                Ok(d) => break d,
+                Err(e) => {
+                    tray_handler.clear_state();
+                    eprintln!("Connecting failed with error: {e}");
+                }
+            }
+            std::thread::sleep(Duration::from_secs(1));
+        };
+
+        let device_interface_count = count_compatible_devices().unwrap_or(u32::MAX);
+
+        let mut controller_threads = devices
+            .into_iter()
+            .map(|device| {
+                let (device_tx, device_rx) = multi_threading::create_controller_channel();
+                let local_exit = exit.clone();
+                (
+                    std::thread::spawn(move || {
+                        controller_handler(device, device_rx, local_exit);
+                    }),
+                    device_tx,
+                )
+            })
+            .collect::<Vec<(JoinHandle<()>, ControllerSender)>>();
+
+        // Run loop
+        loop {
+            // this behaves like a iter_timeout
+            let first = rx.recv_timeout(Duration::from_millis(500));
+            for (device_id, command) in first.into_iter().chain(rx.try_iter()) {
+                controller_threads[device_id as usize]
+                    .1
+                    .send_command(command);
+            }
+
+            tray_handler.update(
+                &controller_threads
+                    .iter()
+                    .map(|d| d.1.get_latest_properties())
+                    .collect::<Vec<DeviceProperties>>(),
+            );
+            // if a new puck or controller is connected or disconnected
+            if count_compatible_devices().unwrap_or(u32::MAX) != device_interface_count
+                || controller_threads.iter().any(|t| t.0.is_finished())
+            {
+                exit.store(true, std::sync::atomic::Ordering::Relaxed);
+                controller_threads.drain(..).for_each(|t| {
+                    t.0.join().unwrap();
+                });
+                break;
+            }
+            std::thread::sleep(Duration::from_secs(1));
         }
-        let a = &controller_tx
-            .iter()
-            .map(|d| d.get_latest_properties())
-            .collect::<Vec<DeviceProperties>>();
-        tray_handler.update(a);
     }
 }

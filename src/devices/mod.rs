@@ -82,6 +82,29 @@ pub fn connect_compatible_devices() -> Result<Vec<Controller>, DeviceError> {
     }
 }
 
+/// Count the number of interfaces belonging to supported devices
+pub fn count_compatible_devices() -> Result<u32, DeviceError> {
+    let all_product_ids: Vec<u16> = DEVICE_REGISTER
+        .iter()
+        .flat_map(|e| e.product_ids.iter().copied())
+        .collect();
+    let all_vendor_ids: Vec<u16> = DEVICE_REGISTER
+        .iter()
+        .flat_map(|e| e.vendor_ids.iter().copied())
+        .collect();
+
+    let hid_api = HidApi::new()?;
+    let mut device_count = 0;
+    for device in hid_api.device_list() {
+        if all_product_ids.contains(&device.product_id())
+            && all_vendor_ids.contains(&device.vendor_id())
+        {
+            device_count += 1;
+        }
+    }
+    Ok(device_count)
+}
+
 fn connect_hid_devices() -> Result<Vec<DeviceBox>, DeviceError> {
     let all_product_ids: Vec<u16> = DEVICE_REGISTER
         .iter()
