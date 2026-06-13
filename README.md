@@ -24,6 +24,8 @@ It provides sane defaults with buttons mapped like the XBox controllers, all cap
 ## Features
 
 - Connectivity via cable, puck or Bluetooth
+- Multiple pucks simultaneously
+- Mix and match connectivity styles
 - Works on Linux and Windows
 - Disables "Lizard Mode" (the  default mouse controlls when not using steam)
 - Status updates in tray app, this includes:
@@ -70,7 +72,6 @@ It provides sane defaults with buttons mapped like the XBox controllers, all cap
 - After launch, will not pick up on new devices
     - No new wired controllers, Bluetooth controllers or pucks
     - Connected pucks **will** pick up new controllers
-    - A connected device will not be picked up if it's **re**connected
 
 ## Usage
 
@@ -82,18 +83,13 @@ It provides sane defaults with buttons mapped like the XBox controllers, all cap
 
 #### Windows
 
-- TBD
+- ViGEm by Nefarius, <a href="https://docs.nefarius.at/projects/ViGEm/How-to-Install" title="nefarius ViGEm installation">install guide here</a>
 
 ### Installation
 
 #### Reccommended
 
 Download the latest release and store it in an easy to reach place.
-On Linux, additionally mark it as executeable by navigating to the folder and using the following command:
-```bash
-chmod +x ./open-steam-controller
-```
-
 After that, just start it. The tool works, if the trackpads no longer controll the mouse and/or a tray icon appears
 
 ## Screenshots
