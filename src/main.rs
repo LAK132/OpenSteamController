@@ -1,3 +1,5 @@
+#![cfg_attr(target_os = "windows", windows_subsystem = "windows")]
+
 use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
 
@@ -17,8 +19,10 @@ mod tray_battery_icon_state;
 #[cfg(not(target_os = "linux"))]
 fn main() {
     use clap::ArgAction;
+    use open_steam_controller::devices::count_compatible_devices;
     use open_steam_controller::multi_threading::ControllerSender;
     use std::sync::mpsc;
+    use std::thread::JoinHandle;
 
     use crate::status_tray_not_linux::TrayApp;
     use open_steam_controller::devices::connect_compatible_devices;
@@ -52,42 +56,65 @@ fn main() {
 
     VERBOSE.set(matches.get_flag("verbose")).unwrap();
 
-    let devices = loop {
-        match connect_compatible_devices() {
-            Ok(d) => break d,
-            Err(e) => {
-                let _ = proxy.send_event(Vec::new());
-                eprintln!("Connecting failed with error: {e}");
-            }
-        }
-        std::thread::sleep(Duration::from_secs(1));
-    };
-
-    let mut controller_tx = devices
-        .into_iter()
-        .map(|device| {
-            let (device_tx, device_rx) = multi_threading::create_controller_channel();
-            std::thread::spawn(move || {
-                controller_handler(device, device_rx);
-            });
-            device_tx
-        })
-        .collect::<Vec<ControllerSender>>();
-
     let (tx, rx) = mpsc::channel::<(u32, DeviceEvent)>();
 
     std::thread::spawn(move || {
-        // Run loop
         loop {
-            let first = rx.recv_timeout(Duration::from_millis(500));
-            for (device_id, command) in first.into_iter().chain(rx.try_iter()) {
-                controller_tx[device_id as usize].send_command(command);
+            let exit = Arc::new(AtomicBool::new(false));
+
+            let devices = loop {
+                match connect_compatible_devices() {
+                    Ok(d) => break d,
+                    Err(e) => {
+                        let _ = proxy.send_event(Vec::new());
+                        eprintln!("Connecting failed with error: {e}");
+                    }
+                }
+                std::thread::sleep(Duration::from_secs(1));
+            };
+
+            let device_interface_count = count_compatible_devices().unwrap_or(u32::MAX);
+
+            let mut controller_threads = devices
+                .into_iter()
+                .map(|device| {
+                    let (device_tx, device_rx) = multi_threading::create_controller_channel();
+                    let local_exit = exit.clone();
+                    (
+                        std::thread::spawn(move || {
+                            controller_handler(device, device_rx, local_exit);
+                        }),
+                        device_tx,
+                    )
+                })
+                .collect::<Vec<(JoinHandle<()>, ControllerSender)>>();
+
+            // Run loop
+            loop {
+                // this behaves like a iter_timeout
+                let first = rx.recv_timeout(Duration::from_millis(500));
+                for (device_id, command) in first.into_iter().chain(rx.try_iter()) {
+                    controller_threads[device_id as usize]
+                        .1
+                        .send_command(command);
+                }
+                let state = controller_threads
+                    .iter()
+                    .map(|d| d.1.get_latest_properties())
+                    .collect::<Vec<DeviceProperties>>();
+                let _ = proxy.send_event(state);
+                // if a new puck or controller is connected or disconnected
+                if count_compatible_devices().unwrap_or(u32::MAX) != device_interface_count
+                    || controller_threads.iter().any(|t| t.0.is_finished())
+                {
+                    exit.store(true, std::sync::atomic::Ordering::Relaxed);
+                    controller_threads.drain(..).for_each(|t| {
+                        t.0.join().unwrap();
+                    });
+                    break;
+                }
+                std::thread::sleep(Duration::from_secs(1));
             }
-            let state = controller_tx
-                .iter()
-                .map(|d| d.get_latest_properties())
-                .collect::<Vec<DeviceProperties>>();
-            let _ = proxy.send_event(state);
         }
     });
 
