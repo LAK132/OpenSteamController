@@ -22,6 +22,8 @@ const SET_SETTING_CMD: u8 = 0x87;
 const RESPONSE_INPUT_EVENT: u8 = 0x45;
 /// Response prefix for status event
 const RESPONSE_STATUS_EVENT: u8 = 0x43;
+/// Response prefix for connection event
+const RESPONSE_CONNECTION_EVENT: u8 = 0x79;
 /// Range in the response containing the button bits
 const BUTTON_LOCATION: Range<usize> = 2..6;
 /// Range in the response containing the triggers
@@ -222,6 +224,8 @@ impl SteamController {
     }
 
     fn handle_status(response: &[u8; 16]) -> Vec<DeviceEvent> {
+        // implicit connection event, because receiving data == controller is connected
+        let connected_event = DeviceEvent::WirelessConnected(true);
         let charge_event = DeviceEvent::Charging(match response[1] {
             1 => ChargingStatus::NotCharging,
             3 => ChargingStatus::Charging,
@@ -248,7 +252,18 @@ impl SteamController {
         // 13 unknown; values 56-248
         // 14 unknown; values 98-104
         // 15.. unused? only zeroes
-        vec![charge_event, battery_event]
+        vec![charge_event, battery_event, connected_event]
+    }
+
+    fn handle_connection(response: u8) -> Option<DeviceEvent> {
+        match response {
+            1 => Some(DeviceEvent::WirelessConnected(false)),
+            2 => Some(DeviceEvent::WirelessConnected(true)),
+            e => {
+                debug_println!("Unknown connection event: {e}");
+                None
+            }
+        }
     }
 }
 
@@ -290,6 +305,11 @@ impl Device for SteamController {
                 events.append(&mut SteamController::handle_trackpads(
                     response[TRACKPAD_LOCATION].try_into().unwrap(),
                 ));
+            }
+            RESPONSE_CONNECTION_EVENT => {
+                if let Some(event) = SteamController::handle_connection(response[1]) {
+                    events.push(event);
+                }
             }
             _ => {
                 debug_println!("{:?}", &response);

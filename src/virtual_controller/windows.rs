@@ -65,9 +65,9 @@ impl VirtualController {
         let client = vigem_client::Client::connect().unwrap();
         let id = vigem_client::TargetId::XBOX360_WIRED;
         let mut device = vigem_client::Xbox360Wired::new(client, id);
-        std::thread::sleep(Duration::from_millis(500));
+        std::thread::sleep(Duration::from_millis(2000));
         device.plugin().unwrap();
-        std::thread::sleep(Duration::from_millis(500));
+        std::thread::sleep(Duration::from_millis(2000));
         device.wait_ready().unwrap();
         Ok(Self {
             device,
@@ -124,8 +124,10 @@ impl AbstractVirtualController for VirtualController {
                 } as u8;
             }
             digital_input => {
-                self.state.buttons =
-                    vigem_client::XButtons(update_digital_buttons(self.state.buttons.raw, digital_input))
+                self.state.buttons = vigem_client::XButtons(update_digital_buttons(
+                    self.state.buttons.raw,
+                    digital_input,
+                ))
             }
         }
 

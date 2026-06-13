@@ -39,7 +39,7 @@ const WINDOWS_ICON_SIZE: u32 = 16;
 #[cfg(target_os = "windows")]
 fn create_default_tray_icon() -> tray_icon::Icon {
     // embed a controller .ico/.png at compile time — no file needed at runtime
-    let bytes = include_bytes!("../assets/headphone.png");
+    let bytes = include_bytes!("../assets/games.png");
     let img = image::load_from_memory(bytes).unwrap().into_rgba8();
     let (w, h) = img.dimensions();
     tray_icon::Icon::from_rgba(img.into_raw(), w, h).unwrap()
@@ -186,16 +186,16 @@ type CallbackMap = Arc<Mutex<HashMap<MenuId, Box<dyn Fn() + Send + Sync>>>>;
 
 pub struct TrayApp {
     pub tray_icon: Option<TrayIcon>,
-    pub sender: Sender<DeviceEvent>,
+    pub sender: Sender<(u32, DeviceEvent)>,
     callbacks: CallbackMap,
-    current_state: Option<Option<DeviceProperties>>,
+    current_state: Option<Vec<DeviceProperties>>,
     #[cfg(target_os = "windows")]
     icon_cache: HashMap<WindowsIconKey, Vec<u8>>,
     #[cfg(target_os = "windows")]
     current_icon_key: Option<WindowsIconKey>,
 }
 
-impl ApplicationHandler<Option<DeviceProperties>> for TrayApp {
+impl ApplicationHandler<Vec<DeviceProperties>> for TrayApp {
     fn new_events(&mut self, _event_loop: &winit::event_loop::ActiveEventLoop, cause: StartCause) {
         if cause == StartCause::Init {
             #[cfg(target_os = "windows")]
@@ -220,7 +220,7 @@ impl ApplicationHandler<Option<DeviceProperties>> for TrayApp {
                 self.tray_icon = Some(
                     TrayIconBuilder::new()
                         .with_menu(Box::new(Menu::new()))
-                        .with_title("🎧")
+                        .with_title("🎮")
                         .with_tooltip(NO_COMPATIBLE_DEVICE)
                         .with_menu_on_left_click(true)
                         .build()
@@ -228,14 +228,14 @@ impl ApplicationHandler<Option<DeviceProperties>> for TrayApp {
                 );
             }
 
-            self.update(None);
+            self.update(Vec::new());
         }
     }
 
     fn user_event(
         &mut self,
         _el: &winit::event_loop::ActiveEventLoop,
-        device_properties: Option<DeviceProperties>,
+        device_properties: Vec<DeviceProperties>,
     ) {
         self.update(device_properties);
     }
@@ -252,7 +252,7 @@ impl ApplicationHandler<Option<DeviceProperties>> for TrayApp {
 }
 
 impl TrayApp {
-    pub fn new(sender: Sender<DeviceEvent>) -> Self {
+    pub fn new(sender: Sender<(u32, DeviceEvent)>) -> Self {
         let callbacks: CallbackMap = Arc::new(Mutex::new(HashMap::new()));
 
         let callbacks_clone = Arc::clone(&callbacks);
@@ -279,11 +279,11 @@ impl TrayApp {
     }
 
     #[cfg(target_os = "windows")]
-    fn update_windows_icon(&mut self, device_properties: Option<&DeviceProperties>) {
+    fn update_windows_icon(&mut self, device_properties: &[DeviceProperties]) {
         let Some(tray) = self.tray_icon.as_ref() else {
             return;
         };
-        let icon_state = TrayBatteryIconState::from_device_properties(device_properties);
+        let icon_state = TrayBatteryIconState::from_device_properties(device_properties.first());
         let desired_key = icon_state.windows_icon_key();
         if desired_key == self.current_icon_key {
             return;
@@ -306,7 +306,7 @@ impl TrayApp {
         self.current_icon_key = desired_key;
     }
 
-    fn update(&mut self, device_properties: Option<DeviceProperties>) {
+    fn update(&mut self, device_properties: Vec<DeviceProperties>) {
         if let Some(current_state) = self.current_state.as_ref() {
             if current_state == &device_properties {
                 return;
@@ -314,7 +314,7 @@ impl TrayApp {
         }
 
         #[cfg(target_os = "windows")]
-        self.update_windows_icon(device_properties.as_ref());
+        self.update_windows_icon(&device_properties);
 
         let Some(tray) = &mut self.tray_icon else {
             return;
@@ -326,10 +326,10 @@ impl TrayApp {
         let menu = Menu::new();
         let mut new_callbacks: HashMap<MenuId, Box<dyn Fn() + Send + Sync>> = HashMap::new();
 
-        let Some(device_properties) = device_properties else {
+        if device_properties.is_empty() {
             let _ = tray.set_tooltip(Some(NO_COMPATIBLE_DEVICE));
             #[cfg(target_os = "macos")]
-            tray.set_title(Some(&format!("🎧?")));
+            tray.set_title(Some(&format!("🎮?")));
             let status_item = MenuItem::new(NO_COMPATIBLE_DEVICE, false, None);
             menu.append(&status_item).unwrap();
             menu.append(&PredefinedMenuItem::separator()).unwrap();
@@ -351,154 +351,172 @@ impl TrayApp {
             return;
         };
 
-        if !device_properties.connected.unwrap_or(false) {
-            let _ = tray.set_tooltip(Some(CONTROLLER_NOT_CONNECTED));
-            #[cfg(target_os = "macos")]
-            tray.set_title(Some(&format!("🎧?")));
-            let status_item = MenuItem::new(CONTROLLER_NOT_CONNECTED, false, None);
-            menu.append(&status_item).unwrap();
-            menu.append(&PredefinedMenuItem::separator()).unwrap();
-
-            #[cfg(target_os = "windows")]
-            {
-                append_startup_toggle(&menu, &mut new_callbacks);
-                menu.append(&quit_item).unwrap();
-                new_callbacks.insert(quit_item.id().clone(), Box::new(|| std::process::exit(0)));
-            }
-
-            #[cfg(target_os = "macos")]
-            menu.append(&PredefinedMenuItem::quit(Some("Quit")))
-                .unwrap();
-
-            *self.callbacks.lock().unwrap() = new_callbacks;
-            tray.set_menu(Some(Box::new(menu)));
-            self.current_state = Some(Some(device_properties));
-            return;
-        }
-
         #[cfg(target_os = "macos")]
         let _ = tray.set_tooltip(Some(
             device_properties
-                .to_string_with_padding(0)
-                .lines()
-                .filter(|l| !l.contains("Unknown"))
-                .collect::<Vec<&str>>()
-                .join("\n"),
+                .iter()
+                .enumerate()
+                .map(|(device_id, property)| {
+                    format!(
+                        "Controller: {device_id}\n{}",
+                        if property.connected.unwrap_or(false) {
+                            property
+                                .to_string_with_padding(0)
+                                .lines()
+                                .filter(|l| !l.contains("Unknown"))
+                                .collect::<Vec<&str>>()
+                                .join("\n")
+                        } else {
+                            CONTROLLER_NOT_CONNECTED.to_string()
+                        }
+                    )
+                })
+                .collect::<Vec<String>>()
+                .join("\n\n"),
         ));
 
         #[cfg(target_os = "windows")]
-        let _ = tray.set_tooltip(Some(
-            device_properties
-                .to_string_with_padding(0)
-                .lines()
-                .take(2)
-                .filter(|l| !l.contains("Unknown"))
-                .collect::<Vec<&str>>()
-                .join("\n"),
-        ));
+        {
+            let mut tool_tip = device_properties
+                .iter()
+                .enumerate()
+                .filter(|(_, d)| d.connected.unwrap_or(false))
+                .map(|(device_id, property)| {
+                    format!(
+                        "Controller: {device_id}\n{}",
+                        property
+                            .to_string_with_padding(0)
+                            .lines()
+                            .take(2)
+                            .filter(|l| !l.contains("Unknown"))
+                            .collect::<Vec<&str>>()
+                            .join("\n")
+                    )
+                })
+                .collect::<Vec<String>>()
+                .join("\n\n");
+            if tool_tip.is_empty() {
+                tool_tip = CONTROLLER_NOT_CONNECTED.to_string();
+            }
+            let _ = tray.set_tooltip(Some(tool_tip));
+        }
 
         #[cfg(target_os = "macos")]
         if let Some(battery_level) = device_properties.battery_level {
             tray.set_title(Some(&format!("🎧 {battery_level}%")));
         }
 
-        for property in device_properties.get_properties() {
-            match property {
-                PropertyDescriptorWrapper::Int(property, []) => {
-                    let Some(current_value) = property.data else {
-                        continue;
-                    };
-                    let menu_item = MenuItem::new(
-                        format!(
-                            "{}: {}",
-                            property.pretty_name,
-                            format_int_value(current_value, property.suffix)
-                        ),
-                        false,
-                        None,
-                    );
-                    let _ = menu.append(&menu_item);
-                }
-                PropertyDescriptorWrapper::Int(property, items) => {
-                    let Some(current_value) = property.data else {
-                        continue;
-                    };
-                    let submenu = Submenu::new(
-                        format!(
-                            "{}: {}",
-                            property.pretty_name,
-                            format_int_value(current_value, property.suffix),
-                        ),
-                        property.property_type == PropertyType::ReadWrite,
-                    );
+        for (device_id, device_properties) in device_properties.iter().enumerate() {
+            let menu_item = MenuItem::new(format!("Controller: {device_id}",), false, None);
+            let _ = menu.append(&menu_item);
 
-                    for item_value in items {
-                        let entry = MenuItem::new(
-                            format_int_value(*item_value, property.suffix),
-                            true,
+            if !device_properties.connected.unwrap_or(false) {
+                #[cfg(target_os = "macos")]
+                tray.set_title(Some(&format!("🎧?")));
+                let status_item = MenuItem::new(CONTROLLER_NOT_CONNECTED, false, None);
+                menu.append(&status_item).unwrap();
+                menu.append(&PredefinedMenuItem::separator()).unwrap();
+
+                continue;
+            }
+
+            for property in device_properties.get_properties() {
+                match property {
+                    PropertyDescriptorWrapper::Int(property, []) => {
+                        let Some(current_value) = property.data else {
+                            continue;
+                        };
+                        let menu_item = MenuItem::new(
+                            format!(
+                                "{}: {}",
+                                property.pretty_name,
+                                format_int_value(current_value, property.suffix)
+                            ),
+                            false,
                             None,
                         );
-                        submenu.append(&entry).unwrap();
+                        let _ = menu.append(&menu_item);
+                    }
+                    PropertyDescriptorWrapper::Int(property, items) => {
+                        let Some(current_value) = property.data else {
+                            continue;
+                        };
+                        let submenu = Submenu::new(
+                            format!(
+                                "{}: {}",
+                                property.pretty_name,
+                                format_int_value(current_value, property.suffix),
+                            ),
+                            property.property_type == PropertyType::ReadWrite,
+                        );
 
+                        for item_value in items {
+                            let entry = MenuItem::new(
+                                format_int_value(*item_value, property.suffix),
+                                true,
+                                None,
+                            );
+                            submenu.append(&entry).unwrap();
+
+                            let create_event = property.create_event;
+                            let tx = self.sender.clone();
+                            let entry_id = entry.id().clone();
+                            new_callbacks.insert(
+                                entry_id,
+                                Box::new(move || {
+                                    if let Some(event) = (create_event)(*item_value) {
+                                        let _ = tx.send((device_id as u32, event));
+                                    }
+                                }),
+                            );
+                        }
+
+                        menu.append(&submenu).unwrap();
+                    }
+                    PropertyDescriptorWrapper::Bool(property) => {
+                        let Some(current_value) = property.data else {
+                            continue;
+                        };
                         let create_event = property.create_event;
-                        let tx = self.sender.clone();
-                        let entry_id = entry.id().clone();
+                        let update_sender = self.sender.clone();
+                        let menu_item = MenuItem::new(
+                            format!(
+                                "{}: {}{}",
+                                property.pretty_name, current_value, property.suffix
+                            ),
+                            property.property_type == PropertyType::ReadWrite
+                                && property.data.is_some(),
+                            None,
+                        );
+                        let _ = menu.append(&menu_item);
+                        let menu_itme_id = menu_item.id().clone();
                         new_callbacks.insert(
-                            entry_id,
+                            menu_itme_id,
                             Box::new(move || {
-                                if let Some(event) = (create_event)(*item_value) {
-                                    let _ = tx.send(event);
+                                if let Some(command) = (create_event)(!current_value) {
+                                    let _ = update_sender.send((device_id as u32, command));
                                 }
                             }),
                         );
                     }
-
-                    menu.append(&submenu).unwrap();
-                }
-                PropertyDescriptorWrapper::Bool(property) => {
-                    let Some(current_value) = property.data else {
-                        continue;
-                    };
-                    let create_event = property.create_event;
-                    let update_sender = self.sender.clone();
-                    let menu_item = MenuItem::new(
-                        format!(
-                            "{}: {}{}",
-                            property.pretty_name, current_value, property.suffix
-                        ),
-                        property.property_type == PropertyType::ReadWrite
-                            && property.data.is_some(),
-                        None,
-                    );
-                    let _ = menu.append(&menu_item);
-                    let menu_itme_id = menu_item.id().clone();
-                    new_callbacks.insert(
-                        menu_itme_id,
-                        Box::new(move || {
-                            if let Some(command) = (create_event)(!current_value) {
-                                let _ = update_sender.send(command);
-                            }
-                        }),
-                    );
-                }
-                PropertyDescriptorWrapper::String(property) => {
-                    let Some(current_value) = property.data else {
-                        continue;
-                    };
-                    let menu_item = MenuItem::new(
-                        format!(
-                            "{}: {}{}",
-                            property.pretty_name, current_value, property.suffix
-                        ),
-                        false,
-                        None,
-                    );
-                    let _ = menu.append(&menu_item);
+                    PropertyDescriptorWrapper::String(property) => {
+                        let Some(current_value) = property.data else {
+                            continue;
+                        };
+                        let menu_item = MenuItem::new(
+                            format!(
+                                "{}: {}{}",
+                                property.pretty_name, current_value, property.suffix
+                            ),
+                            false,
+                            None,
+                        );
+                        let _ = menu.append(&menu_item);
+                    }
                 }
             }
+            menu.append(&PredefinedMenuItem::separator()).unwrap();
         }
-
-        menu.append(&PredefinedMenuItem::separator()).unwrap();
 
         #[cfg(target_os = "windows")]
         {
@@ -513,7 +531,7 @@ impl TrayApp {
 
         *self.callbacks.lock().unwrap() = new_callbacks;
         tray.set_menu(Some(Box::new(menu)));
-        self.current_state = Some(Some(device_properties));
+        self.current_state = Some(device_properties);
     }
 }
 

@@ -21,7 +21,7 @@ pub fn format_int_value(value: u8, suffix: &str) -> String {
     }
 }
 
-type DeviceBox = Box<dyn Device + Send>;
+pub type DeviceBox = Box<dyn Device + Send>;
 type DeviceFactory = fn(DeviceState) -> DeviceBox;
 
 struct DeviceEntry {
@@ -82,6 +82,29 @@ pub fn connect_compatible_devices() -> Result<Vec<Controller>, DeviceError> {
     }
 }
 
+/// Count the number of interfaces belonging to supported devices
+pub fn count_compatible_devices() -> Result<u32, DeviceError> {
+    let all_product_ids: Vec<u16> = DEVICE_REGISTER
+        .iter()
+        .flat_map(|e| e.product_ids.iter().copied())
+        .collect();
+    let all_vendor_ids: Vec<u16> = DEVICE_REGISTER
+        .iter()
+        .flat_map(|e| e.vendor_ids.iter().copied())
+        .collect();
+
+    let hid_api = HidApi::new()?;
+    let mut device_count = 0;
+    for device in hid_api.device_list() {
+        if all_product_ids.contains(&device.product_id())
+            && all_vendor_ids.contains(&device.vendor_id())
+        {
+            device_count += 1;
+        }
+    }
+    Ok(device_count)
+}
+
 fn connect_hid_devices() -> Result<Vec<DeviceBox>, DeviceError> {
     let all_product_ids: Vec<u16> = DEVICE_REGISTER
         .iter()
@@ -103,7 +126,7 @@ fn connect_hid_devices() -> Result<Vec<DeviceBox>, DeviceError> {
             // 0-2 is first
             // 3-5 is second...
             .step_by(3)
-            .filter_map(|mut state| {
+            .filter_map(|state| {
                 eprintln!(
                     "Connecting to {}",
                     state
@@ -112,7 +135,6 @@ fn connect_hid_devices() -> Result<Vec<DeviceBox>, DeviceError> {
                         .clone()
                         .unwrap_or("???".to_string())
                 );
-                state.device_properties.connected = Some(true);
                 DEVICE_REGISTER
                     .iter()
                     .find(|e| {
@@ -132,7 +154,7 @@ fn connect_hid_devices() -> Result<Vec<DeviceBox>, DeviceError> {
     // On Windows we have to check which interface can be used
     #[cfg(target_os = "windows")]
     {
-        let mut device = None;
+        let mut devices = Vec::new();
         for (i, state) in states.into_iter().enumerate() {
             eprintln!(
                 "Try to connect to {}",
@@ -159,14 +181,15 @@ fn connect_hid_devices() -> Result<Vec<DeviceBox>, DeviceError> {
                 .read_timeout(&mut buff, 500);
             debug_println!("reading {i} {:?} {:?}", bytes_read, &buff);
 
-            device = Some(test_device);
-            if let Ok(b) = bytes_read {
-                if b > 0 {
-                    break;
-                }
+            if let Ok(_b) = bytes_read {
+                devices.push(test_device);
             }
         }
-        device.ok_or(DeviceError::NoDeviceFound())
+        if devices.is_empty() {
+            Err(DeviceError::NoDeviceFound())
+        } else {
+            Ok(devices)
+        }
     }
 }
 
