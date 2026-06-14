@@ -5,6 +5,8 @@ This is done by reading straight from the HID device itself and spawning a virtu
 
 It provides sane defaults with buttons mapped like the Xbox controllers, all capacitive "buttons" disabled and paddles mapped to shoulder buttons.
 
+This project is not affiliated with, endorsed by, or associated with Valve in any way. All trademarks and brand names belong to their respective owners.
+
 ## Features
 
 - Connectivity via cable, puck or Bluetooth
