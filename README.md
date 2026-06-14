@@ -7,6 +7,13 @@ It provides sane defaults with buttons mapped like the Xbox controllers, all cap
 
 This project is not affiliated with, endorsed by, or associated with Valve in any way. All trademarks and brand names belong to their respective owners.
 
+## Screenshots
+
+| OS | Tooltip |
+|:---:|:---:|:---:|
+| **Linux** | <img src=./screenshots/linux-tray.png width="280"> |
+| **Windows** | <img src=./screenshots/windows-tray.png width="280"> |
+
 ## Features
 
 - Connectivity via cable, puck or Bluetooth
@@ -62,13 +69,6 @@ This project is not affiliated with, endorsed by, or associated with Valve in an
 
 Download the latest release and store it in an easy to reach place.
 After that, just start it. The tool works, if the trackpads no longer control the mouse and/or a tray icon appears
-
-## Screenshots
-
-| OS | Tooltip |
-|:---:|:---:|:---:|
-| **Linux** | <img src=./screenshots/linux-tray.png width="280"> |
-| **Windows** | <img src=./screenshots/windows-tray.png width="280"> |
 
 ## Attribution
 <a href="https://www.flaticon.com/free-icons/game-boy-advance" title="game boy advance icons">Game boy advance icons created by Freepik - Flaticon</a>
