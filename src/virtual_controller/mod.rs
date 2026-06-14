@@ -42,6 +42,7 @@ pub enum ControllerInput {
     RightTrigger(f32),
     LeftTrackpad(f32, f32, f32),
     RightTrackpad(f32, f32, f32),
+    Ignore,
 }
 
 /// Used to implement OS independent virtual controller

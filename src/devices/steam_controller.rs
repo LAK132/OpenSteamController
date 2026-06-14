@@ -154,16 +154,16 @@ impl SteamController {
                     Button::L4 =>               ControllerInput::LeftBumper(states.contains(Button::L4)), // TODO
                     Button::L5 =>               ControllerInput::LeftTrigger(states.contains(Button::L2) as u8 as f32), // TODO
                     Button::L1 =>               ControllerInput::LeftBumper(states.contains(Button::L1)), // TODO
-                    Button::ThumbRightTouch =>  ControllerInput::RightThumb(states.contains(Button::ThumbRightTouch)), // TODO
-                    Button::PadRightTouch =>    ControllerInput::RightThumb(states.contains(Button::PadRightTouch)), // TODO
-                    Button::PadRightClick =>    ControllerInput::RightThumb(states.contains(Button::PadRightClick)), // TODO
+                    Button::ThumbRightTouch =>  ControllerInput::Ignore, // TODO
+                    Button::PadRightTouch =>    ControllerInput::Ignore, // TODO
+                    Button::PadRightClick =>    ControllerInput::Ignore, // TODO
                     Button::R2 =>               ControllerInput::RightTrigger(states.contains(Button::R2) as u8 as f32),
                     Button::ThumbLeftTouch =>   ControllerInput::LeftThumb(states.contains(Button::ThumbLeftTouch)), //TODO
-                    Button::PadLeftTouch =>     ControllerInput::LeftThumb(states.contains(Button::PadLeftTouch)),   // TODO
+                    Button::PadLeftTouch =>     ControllerInput::Ignore,   // TODO
                     Button::PadLeftClick =>     ControllerInput::LeftThumb(states.contains(Button::PadLeftClick)),   // TODO
                     Button::L2 =>               ControllerInput::LeftTrigger(states.contains(Button::L2) as u8 as f32),
-                    Button::GripRight =>        ControllerInput::RightThumb(states.contains(Button::GripRight)), // TODO
-                    Button::GripLeft =>         ControllerInput::LeftThumb(states.contains(Button::GripLeft)),   // TODO
+                    Button::GripRight =>        ControllerInput::Ignore, // TODO
+                    Button::GripLeft =>         ControllerInput::Ignore,   // TODO
                     _ => panic!("Undefined Button!"),
                 })
             })

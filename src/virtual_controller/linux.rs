@@ -1,5 +1,6 @@
 use std::ops::Neg;
 
+use crate::debug_println;
 use crate::virtual_controller::{AbstractVirtualController, ControllerInput};
 use uinput::event::absolute::Position;
 use uinput::event::Controller;
@@ -17,8 +18,10 @@ const NAME: &str = "Xbox Controller";
 /// released
 ///
 /// Panics if the input is analog
-fn map_digital_controller_input(input: ControllerInput) -> (uinput::event::Controller, bool) {
-    match input {
+fn map_digital_controller_input(
+    input: ControllerInput,
+) -> Option<(uinput::event::Controller, bool)> {
+    Some(match input {
         ControllerInput::South(pressed) => {
             (Controller::GamePad(controller::GamePad::South), pressed)
         }
@@ -58,8 +61,8 @@ fn map_digital_controller_input(input: ControllerInput) -> (uinput::event::Contr
         ControllerInput::Down(pressed) => (Controller::DPad(controller::DPad::Down), pressed),
         ControllerInput::Left(pressed) => (Controller::DPad(controller::DPad::Left), pressed),
         ControllerInput::Right(pressed) => (Controller::DPad(controller::DPad::Right), pressed),
-        input => panic!("Unknown or analog input {:?}", input),
-    }
+        _ => return None,
+    })
 }
 
 /// A virtual controller to send button inputs
@@ -147,7 +150,10 @@ impl VirtualController {
 
     /// helper for digital inputs
     fn perform_digital_input(&mut self, input: ControllerInput) -> anyhow::Result<()> {
-        let (input, pressed) = map_digital_controller_input(input);
+        let Some((input, pressed)) = map_digital_controller_input(input) else {
+            debug_println!("Ignoring input {input:?}");
+            return Ok(());
+        };
         if pressed {
             self.device.press(&input)?;
         } else {

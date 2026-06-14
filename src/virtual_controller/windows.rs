@@ -17,7 +17,7 @@ const STICK_MAX: i16 = i16::MAX;
 /// mac value for tirggers
 const TRIGGER_MAX: u8 = u8::MAX;
 
-/// calulate new state based on current state and a new input
+/// calculate new state based on current state and a new input
 fn update_digital_buttons(current_buttons: u16, input: ControllerInput) -> u16 {
     let bit_flag_helper = |set, flag: u16, state: u16| {
         if set {
