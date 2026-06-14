@@ -158,7 +158,7 @@ impl SteamController {
                     Button::PadRightTouch =>    ControllerInput::Ignore, // TODO
                     Button::PadRightClick =>    ControllerInput::Ignore, // TODO
                     Button::R2 =>               ControllerInput::RightTrigger(states.contains(Button::R2) as u8 as f32),
-                    Button::ThumbLeftTouch =>   ControllerInput::LeftThumb(states.contains(Button::ThumbLeftTouch)), //TODO
+                    Button::ThumbLeftTouch =>   ControllerInput::Ignore, //TODO
                     Button::PadLeftTouch =>     ControllerInput::Ignore,   // TODO
                     Button::PadLeftClick =>     ControllerInput::LeftThumb(states.contains(Button::PadLeftClick)),   // TODO
                     Button::L2 =>               ControllerInput::LeftTrigger(states.contains(Button::L2) as u8 as f32),
