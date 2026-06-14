@@ -98,11 +98,25 @@ fn main() {
                         .1
                         .send_command(command);
                 }
-                let state = controller_threads
+
+                let mut states = controller_threads
                     .iter()
                     .map(|d| d.1.get_latest_properties())
+                    .enumerate()
+                    .filter_map(|(device_id, p)| {
+                        if device_id == 0 || p.connected == Some(true) {
+                            Some(p)
+                        } else {
+                            None
+                        }
+                    })
                     .collect::<Vec<DeviceProperties>>();
-                let _ = proxy.send_event(state);
+                // in case there are more than one we can discard controller 0 if not connected
+                if states.len() != 1 {
+                    states.retain(|s| s.connected == Some(true));
+                }
+
+                let _ = proxy.send_event(states);
                 // if a new puck or controller is connected or disconnected
                 if count_compatible_devices().unwrap_or(u32::MAX) != device_interface_count
                     || controller_threads.iter().any(|t| t.0.is_finished())
@@ -270,12 +284,24 @@ fn main() {
                     .send_command(command);
             }
 
-            tray_handler.update(
-                &controller_threads
-                    .iter()
-                    .map(|d| d.1.get_latest_properties())
-                    .collect::<Vec<DeviceProperties>>(),
-            );
+            let mut states = controller_threads
+                .iter()
+                .map(|d| d.1.get_latest_properties())
+                .enumerate()
+                .filter_map(|(device_id, p)| {
+                    if device_id == 0 || p.connected == Some(true) {
+                        Some(p)
+                    } else {
+                        None
+                    }
+                })
+                .collect::<Vec<DeviceProperties>>();
+            // in case there are more than one we can discard controller 0 if not connected
+            if states.len() != 1 {
+                states.retain(|s| s.connected == Some(true));
+            }
+
+            tray_handler.update(&states);
             // if a new puck or controller is connected or disconnected
             if count_compatible_devices().unwrap_or(u32::MAX) != device_interface_count
                 || controller_threads.iter().any(|t| t.0.is_finished())
