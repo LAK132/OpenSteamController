@@ -258,7 +258,9 @@ impl SteamController {
     fn handle_connection(response: u8) -> Option<DeviceEvent> {
         match response {
             1 => Some(DeviceEvent::WirelessConnected(false)),
-            2 => Some(DeviceEvent::WirelessConnected(true)),
+            // use status packets to determine whether a controller is connected to avoid detecting
+            // the puck itself as a controller
+            2 => None, // Some(DeviceEvent::WirelessConnected(true)),
             e => {
                 debug_println!("Unknown connection event: {e}");
                 None
