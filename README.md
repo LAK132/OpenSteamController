@@ -41,6 +41,7 @@ This project is not affiliated with, endorsed by, or associated with Valve in an
 - Toggle mouse/stick/dpad behaviour for trackpads
 - Store controller configurations
 - Provide AUR package
+- Publish on crates.io
 - Expand informations provided in tray
 - Show battery status of lowest controller in tray icon
 - Support rumble/haptics
@@ -68,7 +69,7 @@ This project is not affiliated with, endorsed by, or associated with Valve in an
 #### 2.1 Recommended
 
 Download the latest release and store it in an easy to reach place.
-After that, just start it. The tool works, if the trackpads no longer control the mouse and/or a tray icon appears
+After that, just start it. The tool works, if the trackpads no longer control the mouse and/or a tray icon appears.
 
 ## Attribution
 <a href="https://www.flaticon.com/free-icons/game-boy-advance" title="game boy advance icons">Game boy advance icons created by Freepik - Flaticon</a>
