@@ -228,7 +228,8 @@ impl SteamController {
         let connected_event = DeviceEvent::WirelessConnected(true);
         let charge_event = DeviceEvent::Charging(match response[1] {
             1 => ChargingStatus::NotCharging,
-            3 => ChargingStatus::Charging,
+            // 2 means charging with puck, is it worth it do differentiate between the two?
+            3 | 2 => ChargingStatus::Charging,
             4 => ChargingStatus::FullyCharged,
             x => {
                 debug_println!("Unknown charging status encountered: {x}");
