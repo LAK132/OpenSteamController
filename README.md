@@ -1,10 +1,6 @@
 # OpenSteamController
 
-## Important TODO
-- dont map unknown controller events to sticks
-
 ## TODO
-- Puck needs to be ignores on linux; shows up & sends connected when controller is docked
 - Swap A/B
 - Display more information in tray
   - e.g. signal strenght
