@@ -10,7 +10,7 @@ This project is not affiliated with, endorsed by, or associated with Valve in an
 ## Screenshots
 
 | OS | Tooltip |
-|:---:|:---:|:---:|
+|:---:|:---:|
 | **Linux** | <img src=./screenshots/linux-tray.png width="280"> |
 | **Windows** | <img src=./screenshots/windows-tray.png width="280"> |
 
@@ -46,26 +46,26 @@ This project is not affiliated with, endorsed by, or associated with Valve in an
 - Support rumble/haptics
 - Shutdown via tool
 
-### Maybe Features
+#### Maybe Features
 
 - Support for MacOS
 - Optionally "shadow" default steam controller
 
 ## Usage
 
-### Requirements
+### 1. Requirements
 
-#### Linux
+#### 1.1 Linux
 
 - `uinput` kernel module
 
-#### Windows
+#### 1.2 Windows
 
 - ViGEm by Nefarius, <a href="https://docs.nefarius.at/projects/ViGEm/How-to-Install" title="nefarius ViGEm installation">install guide here</a>
 
-### Installation
+### 2. Installation
 
-#### Recommended
+#### 2.1 Recommended
 
 Download the latest release and store it in an easy to reach place.
 After that, just start it. The tool works, if the trackpads no longer control the mouse and/or a tray icon appears
