@@ -1,21 +1,5 @@
 # OpenSteamController
 
-## TODO
-- Swap A/B
-- Display more information in tray
-  - e.g. signal strenght
-- battery icon?
-- macos virtual controller
-- map special inputs linux
-- gyro read
-- optionally activate track pad mouse 
-    - maybe make this and lizard mode toggleble via the controller
-- store settings
-- rumble / haptics
-- toggleble claiming of interfaces
-- AUR
-- capture whether steam can turn of controller
-
 This tool provides support for the Steam Controller (2026) for non Steam games, with full button support and status updates via built in tray app.
 This is done by reading straight from the HID Device itself and spawning a virtual controller per connected physical controller.
 
