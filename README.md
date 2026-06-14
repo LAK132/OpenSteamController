@@ -63,5 +63,10 @@ After that, just start it. The tool works, if the trackpads no longer control th
 
 ## Screenshots
 
+| OS | Tooltip |
+|:---:|:---:|:---:|
+| **Linux** | <img src=./screenshots/linux-tray.png width="280"> |
+| **Windows** | <img src=./screenshots/windows-tray.png width="280"> |
+
 ## Attribution
 <a href="https://www.flaticon.com/free-icons/game-boy-advance" title="game boy advance icons">Game boy advance icons created by Freepik - Flaticon</a>
