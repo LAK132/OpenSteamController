@@ -6,7 +6,7 @@ use std::{
 #[cfg(target_os = "windows")]
 use image::{Rgba, RgbaImage};
 use open_steam_controller::devices::{
-    format_int_value, DeviceEvent, DeviceProperties, PropertyDescriptorWrapper, PropertyType,
+    DeviceCommand, DeviceProperties, PropertyDescriptorWrapper, PropertyType, format_int_value
 };
 #[cfg(target_os = "windows")]
 use tray_icon::menu::CheckMenuItem;
@@ -186,7 +186,7 @@ type CallbackMap = Arc<Mutex<HashMap<MenuId, Box<dyn Fn() + Send + Sync>>>>;
 
 pub struct TrayApp {
     pub tray_icon: Option<TrayIcon>,
-    pub sender: Sender<(u32, DeviceEvent)>,
+    pub sender: Sender<(u32, DeviceCommand)>,
     callbacks: CallbackMap,
     current_state: Option<Vec<DeviceProperties>>,
     #[cfg(target_os = "windows")]
@@ -252,7 +252,7 @@ impl ApplicationHandler<Vec<DeviceProperties>> for TrayApp {
 }
 
 impl TrayApp {
-    pub fn new(sender: Sender<(u32, DeviceEvent)>) -> Self {
+    pub fn new(sender: Sender<(u32, DeviceCommand)>) -> Self {
         let callbacks: CallbackMap = Arc::new(Mutex::new(HashMap::new()));
 
         let callbacks_clone = Arc::clone(&callbacks);

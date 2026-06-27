@@ -4,7 +4,7 @@ use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
 
 use open_steam_controller::debug_println;
-use open_steam_controller::devices::{Controller, DeviceEvent};
+use open_steam_controller::devices::{Controller};
 use open_steam_controller::multi_threading::{self, ControllerReceiver};
 
 #[cfg(target_os = "linux")]
@@ -19,14 +19,14 @@ mod tray_battery_icon_state;
 #[cfg(not(target_os = "linux"))]
 fn main() {
     use clap::ArgAction;
-    use open_steam_controller::devices::count_compatible_devices;
+    use open_steam_controller::devices::{DeviceCommand, count_compatible_devices};
     use open_steam_controller::multi_threading::ControllerSender;
     use std::sync::mpsc;
     use std::thread::JoinHandle;
 
     use crate::status_tray_not_linux::TrayApp;
     use open_steam_controller::devices::connect_compatible_devices;
-    use open_steam_controller::devices::{DeviceEvent, DeviceProperties};
+    use open_steam_controller::devices::{DeviceProperties};
     use open_steam_controller::VERBOSE;
     use winit::event_loop::{ControlFlow, EventLoop, EventLoopProxy};
 
@@ -56,7 +56,7 @@ fn main() {
 
     VERBOSE.set(matches.get_flag("verbose")).unwrap();
 
-    let (tx, rx) = mpsc::channel::<(u32, DeviceEvent)>();
+    let (tx, rx) = mpsc::channel::<(u32, DeviceCommand)>();
 
     std::thread::spawn(move || {
         loop {

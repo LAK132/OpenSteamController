@@ -3,7 +3,7 @@ use std::sync::{
     Arc, Mutex,
 };
 
-use crate::devices::{DeviceCommand, DeviceEvent, DeviceProperties};
+use crate::devices::{DeviceCommand, DeviceProperties};
 
 /// Used to receive commands form the front end
 /// and updates state for front end
