@@ -2,7 +2,7 @@ use std::ops::Range;
 
 use crate::{
     debug_println,
-    devices::{ChargingStatus, Device, DeviceEvent, DeviceState},
+    devices::{ChargingStatus, Device, DeviceCommand, DeviceEvent, DeviceState},
     virtual_controller::ControllerInput,
 };
 use bitflags::{bitflags, bitflags_match};
@@ -103,8 +103,27 @@ impl SteamController {
             .collect()
     }
 
+    /// parse button combinations to generate special events
+    /// TODO: maybe use a set instead of a vec for faster lookup
+    fn parse_button_combinations(
+        all_buttons: &[ControllerInput],
+        changes: &[ControllerInput],
+    ) -> Vec<DeviceEvent> {
+        if (all_buttons.contains(&ControllerInput::Y(true))
+            && changes.contains(&ControllerInput::Home(true)))
+            || (changes.contains(&ControllerInput::Y(true))
+                && all_buttons.contains(&ControllerInput::Home(true)))
+        {
+            vec![DeviceEvent::Command(DeviceCommand::TurnOff)]
+        } else {
+            Vec::new()
+        }
+    }
+
     /// Converts the slice containing the bits of currently pressed buttons into corresponding
     /// events of press or release button and updates the previous bitmap for comparison
+    /// TODO: since we have an upper limit for the number of buttons it may be beneficial to use
+    /// fixed size arrays instead of vectors here
     fn handle_buttons(&self, response: [u8; 4]) -> Vec<DeviceEvent> {
         let button_bitmap = Button::from_bits_truncate(u32::from_le_bytes(response));
         let previous_bitmap = Button::from_bits_truncate(
@@ -113,12 +132,16 @@ impl SteamController {
                 .previous_button_bitmap as u32,
         );
         let changed_buttons = button_bitmap.symmetric_difference(previous_bitmap);
+
         if !changed_buttons.is_empty() {
-            let mut result = Self::wrap_controller_input_into_device_event(Self::get_buttons(
+            let changed_buttons = Self::get_buttons(&changed_buttons, &button_bitmap);
+            let mut events_from_combination = Self::parse_button_combinations(
+                &Self::get_buttons(&button_bitmap, &previous_bitmap),
                 &changed_buttons,
-                &button_bitmap,
-            ));
+            );
+            let mut result = Self::wrap_controller_input_into_device_event(changed_buttons);
             result.push(DeviceEvent::UpdateBitmap(button_bitmap.bits() as u64));
+            result.append(&mut events_from_combination);
             result
         } else {
             vec![]
@@ -332,6 +355,23 @@ impl Device for SteamController {
 
     fn get_device_state_mut(&mut self) -> &mut DeviceState {
         &mut self.state
+    }
+
+    fn turn_off(&mut self) -> Result<(), super::DeviceError> {
+        let buffer = {
+            let mut buf = [0u8; 64];
+            buf[0] = 0x01;
+            buf[1] = 0x9f;
+            buf[2] = 0x04;
+            buf[3] = 0x6f; // o
+            buf[4] = 0x66; // f
+            buf[5] = 0x66; // f
+            buf[6] = 0x21; // !
+
+            buf
+        };
+        self.get_device_state().write_hid_report(&buffer)?;
+        Ok(())
     }
 
     fn allow_passive_refresh(&mut self) -> bool {

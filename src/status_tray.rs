@@ -6,7 +6,8 @@ use ksni::{
 };
 use open_steam_controller::{
     devices::{
-        format_int_value, DeviceEvent, DeviceProperties, PropertyDescriptorWrapper, PropertyType,
+        format_int_value, DeviceCommand, DeviceEvent, DeviceProperties, PropertyDescriptorWrapper,
+        PropertyType,
     },
     APP_NAME_PRETTY,
 };
@@ -165,6 +166,24 @@ impl Tray for StatusTray {
                 menu_items.push(MenuItem::Separator);
                 continue;
             }
+            {
+                let update_sender = self.update_sender.clone();
+                menu_items.push(
+                    StandardItem {
+                        label: "Turn controller off".to_string(),
+                        enabled: true,
+                        activate: Box::new(move |_| {
+                            let _ = update_sender.send((
+                                device_id as u32,
+                                DeviceEvent::Command(DeviceCommand::TurnOff),
+                            ));
+                        }),
+                        ..Default::default()
+                    }
+                    .into(),
+                );
+            }
+
             for property in device_properties.get_properties() {
                 match property {
                     PropertyDescriptorWrapper::Int(property, []) => {

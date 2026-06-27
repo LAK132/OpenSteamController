@@ -68,7 +68,7 @@ impl Controller {
         }
     }
 
-    pub fn try_apply(&mut self, command: DeviceEvent) -> Result<(), String> {
+    pub fn try_apply(&mut self, command: DeviceCommand) -> Result<(), DeviceError> {
         match self {
             Controller::Hid(device) => device.try_apply(command),
         }
@@ -356,6 +356,7 @@ impl DeviceState {
             DeviceEvent::UpdateBitmap(bitmap) => {
                 self.device_properties.previous_button_bitmap = *bitmap
             }
+            DeviceEvent::Command(_) => {}
         };
     }
 }
@@ -531,12 +532,20 @@ pub enum DeviceError {
 }
 
 #[derive(Debug, Copy, Clone)]
+/// Events for or from the device
 pub enum DeviceEvent {
     BatteryLevel(u8),
     Charging(ChargingStatus),
     WirelessConnected(bool),
     ButtonPressed(ControllerInput),
     UpdateBitmap(u64),
+    Command(DeviceCommand),
+}
+
+#[derive(Debug, Copy, Clone)]
+/// Commands targeting the controller
+pub enum DeviceCommand {
+    TurnOff,
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
@@ -584,6 +593,7 @@ pub trait Device {
     fn get_device_state(&self) -> &DeviceState;
     fn get_device_state_mut(&mut self) -> &mut DeviceState;
     fn prepare_write(&mut self) {}
+    fn turn_off(&mut self) -> Result<(), DeviceError>;
     /// whether the app should periodically listen for packets from the controllers
     fn allow_passive_refresh(&mut self) -> bool;
 
@@ -657,6 +667,7 @@ pub trait Device {
                 for event in events {
                     match event {
                         DeviceEvent::ButtonPressed(button) => pressed_buttons.push(button),
+                        DeviceEvent::Command(command) => self.try_apply(command)?,
                         _ => self.get_device_state_mut().update_self_with_event(&event),
                     }
                 }
@@ -666,7 +677,11 @@ pub trait Device {
         Ok(pressed_buttons)
     }
 
-    fn try_apply(&mut self, _command: DeviceEvent) -> Result<(), String> {
+    // If possible apply a give command
+    fn try_apply(&mut self, command: DeviceCommand) -> Result<(), DeviceError> {
+        match command {
+            DeviceCommand::TurnOff => self.turn_off()?,
+        }
         Ok(())
     }
 

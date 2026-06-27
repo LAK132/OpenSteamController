@@ -4,7 +4,7 @@ use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
 
 use open_steam_controller::debug_println;
-use open_steam_controller::devices::Controller;
+use open_steam_controller::devices::{Controller, DeviceEvent};
 use open_steam_controller::multi_threading::{self, ControllerReceiver};
 
 #[cfg(target_os = "linux")]
@@ -182,6 +182,11 @@ fn controller_handler(
                 return;
             }
         };
+        for command in device_rx.receive_commands() {
+            if let DeviceEvent::Command(device_command) = command {
+                let _ = device.try_apply(device_command);
+            }
+        }
         device_rx.try_update_state(&device.device_properties());
         run_counter += 1;
         if exit.load(std::sync::atomic::Ordering::Relaxed) {
