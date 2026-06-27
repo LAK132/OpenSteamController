@@ -183,9 +183,7 @@ fn controller_handler(
             }
         };
         for command in device_rx.receive_commands() {
-            if let DeviceEvent::Command(device_command) = command {
-                let _ = device.try_apply(device_command);
-            }
+            let _ = device.try_apply(command);
         }
         device_rx.try_update_state(&device.device_properties());
         run_counter += 1;

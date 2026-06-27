@@ -3,18 +3,18 @@ use std::sync::{
     Arc, Mutex,
 };
 
-use crate::devices::{DeviceEvent, DeviceProperties};
+use crate::devices::{DeviceCommand, DeviceEvent, DeviceProperties};
 
 /// Used to receive commands form the front end
 /// and updates state for front end
 pub struct ControllerReceiver {
-    command_rx: Receiver<DeviceEvent>,
+    command_rx: Receiver<DeviceCommand>,
     state: Arc<Mutex<DeviceProperties>>,
 }
 
 impl ControllerReceiver {
     /// receive new commands
-    pub fn receive_commands(&mut self) -> TryIter<'_, DeviceEvent> {
+    pub fn receive_commands(&mut self) -> TryIter<'_, DeviceCommand> {
         self.command_rx.try_iter()
     }
 
@@ -29,13 +29,13 @@ impl ControllerReceiver {
 /// Used to send commands to a controller thread
 /// and update the state for the front end
 pub struct ControllerSender {
-    command_tx: Sender<DeviceEvent>,
+    command_tx: Sender<DeviceCommand>,
     state: Arc<Mutex<DeviceProperties>>,
 }
 
 impl ControllerSender {
     /// send commands to the controller thread
-    pub fn send_command(&mut self, command: DeviceEvent) {
+    pub fn send_command(&mut self, command: DeviceCommand) {
         self.command_tx.send(command).unwrap();
     }
 

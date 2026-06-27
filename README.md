@@ -32,10 +32,12 @@ This project is not affiliated with, endorsed by, or associated with Valve in an
     - Both sticks
     - Both trigger
     - Both trackpads
+- Shutdown controller via tray or (Steam button + Y)
+- Switch between default and Nintendo layout (swap A/B X/Y) via tray or (Steam button + A)
 
-## Planned Features
 
-- Switch between default and Nintendo layout (swap A/B X/Y)
+## Planned Feature
+
 - Provide custom, non-Xbox buttons for paddle/capacitive buttons mapping
 - Read and send gyro/accelerometer events
 - Toggle mouse/stick/dpad behaviour for trackpads
@@ -45,7 +47,6 @@ This project is not affiliated with, endorsed by, or associated with Valve in an
 - Expand informations provided in tray
 - Show battery status of lowest controller in tray icon
 - Support rumble/haptics
-- Shutdown via tool
 
 #### Maybe Features
 

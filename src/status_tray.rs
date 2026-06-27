@@ -6,8 +6,7 @@ use ksni::{
 };
 use open_steam_controller::{
     devices::{
-        format_int_value, DeviceCommand, DeviceEvent, DeviceProperties, PropertyDescriptorWrapper,
-        PropertyType,
+        format_int_value, DeviceCommand, DeviceProperties, PropertyDescriptorWrapper, PropertyType,
     },
     APP_NAME_PRETTY,
 };
@@ -43,12 +42,12 @@ impl TrayHandler {
 
 pub struct StatusTray {
     device_properties: Vec<DeviceProperties>,
-    update_sender: Sender<(u32, DeviceEvent)>,
+    update_sender: Sender<(u32, DeviceCommand)>,
     monochrome_icons: bool,
 }
 
 impl StatusTray {
-    pub fn new(update_sender: Sender<(u32, DeviceEvent)>, monochrome_icons: bool) -> Self {
+    pub fn new(update_sender: Sender<(u32, DeviceCommand)>, monochrome_icons: bool) -> Self {
         StatusTray {
             device_properties: Vec::new(),
             update_sender,
@@ -173,10 +172,7 @@ impl Tray for StatusTray {
                         label: "Turn controller off".to_string(),
                         enabled: true,
                         activate: Box::new(move |_| {
-                            let _ = update_sender.send((
-                                device_id as u32,
-                                DeviceEvent::Command(DeviceCommand::TurnOff),
-                            ));
+                            let _ = update_sender.send((device_id as u32, DeviceCommand::TurnOff));
                         }),
                         ..Default::default()
                     }

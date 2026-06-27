@@ -96,7 +96,7 @@ impl SteamController {
         packet
     }
 
-    fn wrap_controller_input_into_device_event(input: Vec<ControllerInput>) -> Vec<DeviceEvent> {
+    fn wrap_controller_input_into_device_event(input: &[ControllerInput]) -> Vec<DeviceEvent> {
         input
             .iter()
             .map(|event| DeviceEvent::ButtonPressed(*event))
@@ -115,8 +115,18 @@ impl SteamController {
                 && all_buttons.contains(&ControllerInput::Home(true)))
         {
             vec![DeviceEvent::Command(DeviceCommand::TurnOff)]
+        } else if (all_buttons.contains(&ControllerInput::A(true))
+            && changes.contains(&ControllerInput::Home(true)))
+            || (changes.contains(&ControllerInput::A(true))
+                && all_buttons.contains(&ControllerInput::Home(true)))
+        {
+            vec![
+                DeviceEvent::ButtonPressed(ControllerInput::A(false)),
+                DeviceEvent::ButtonPressed(ControllerInput::B(false)),
+                DeviceEvent::Command(DeviceCommand::NintendoLayoutToggle),
+            ]
         } else {
-            Vec::new()
+            vec![]
         }
     }
 
@@ -135,13 +145,14 @@ impl SteamController {
 
         if !changed_buttons.is_empty() {
             let changed_buttons = Self::get_buttons(&changed_buttons, &button_bitmap);
+            let mut result = Self::wrap_controller_input_into_device_event(&changed_buttons);
+            result.push(DeviceEvent::UpdateBitmap(button_bitmap.bits() as u64));
             let mut events_from_combination = Self::parse_button_combinations(
                 &Self::get_buttons(&button_bitmap, &previous_bitmap),
                 &changed_buttons,
             );
-            let mut result = Self::wrap_controller_input_into_device_event(changed_buttons);
-            result.push(DeviceEvent::UpdateBitmap(button_bitmap.bits() as u64));
             result.append(&mut events_from_combination);
+
             result
         } else {
             vec![]
@@ -218,7 +229,7 @@ impl SteamController {
     fn handle_triggers(response: [u8; 4]) -> Vec<DeviceEvent> {
         let left = Self::convert_analog(response[0..2].try_into().unwrap());
         let right = Self::convert_analog(response[2..4].try_into().unwrap());
-        Self::wrap_controller_input_into_device_event(vec![
+        Self::wrap_controller_input_into_device_event(&[
             ControllerInput::LeftTrigger(left),
             ControllerInput::RightTrigger(right),
         ])
@@ -228,7 +239,7 @@ impl SteamController {
     fn handle_joysticks(response: [u8; 8]) -> Vec<DeviceEvent> {
         let (left_x, left_y) = Self::convert_analog_2d(response[0..4].try_into().unwrap());
         let (right_x, right_y) = Self::convert_analog_2d(response[4..8].try_into().unwrap());
-        Self::wrap_controller_input_into_device_event(vec![
+        Self::wrap_controller_input_into_device_event(&[
             ControllerInput::LeftJoyStick(left_x, left_y),
             ControllerInput::RightJoyStick(right_x, right_y),
         ])
@@ -240,7 +251,7 @@ impl SteamController {
             Self::convert_analog_3d(response[0..6].try_into().unwrap());
         let (right_x, right_y, right_force) =
             Self::convert_analog_3d(response[6..12].try_into().unwrap());
-        Self::wrap_controller_input_into_device_event(vec![
+        Self::wrap_controller_input_into_device_event(&[
             ControllerInput::LeftTrackpad(left_x, left_y, left_force),
             ControllerInput::RightTrackpad(right_x, right_y, right_force),
         ])

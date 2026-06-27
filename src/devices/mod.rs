@@ -208,6 +208,7 @@ pub struct DeviceProperties {
     pub charging: Option<ChargingStatus>,
     pub connected: Option<bool>,
     pub previous_button_bitmap: u64,
+    pub nintendo_layout: bool,
 }
 
 impl Display for DeviceProperties {
@@ -381,7 +382,7 @@ pub struct PropertyDescriptor<T: 'static> {
     pub data: Option<T>,
     pub suffix: &'static str,
     pub property_type: PropertyType,
-    pub create_event: &'static (dyn Fn(T) -> Option<DeviceEvent> + Send + Sync),
+    pub create_event: &'static (dyn Fn(T) -> Option<DeviceCommand> + Send + Sync),
 }
 
 impl<T: Debug> Debug for PropertyDescriptor<T> {
@@ -405,6 +406,7 @@ impl DeviceProperties {
             charging: None,
             connected: None,
             previous_button_bitmap: 0,
+            nintendo_layout: false,
         }
     }
 
@@ -436,6 +438,14 @@ impl DeviceProperties {
                 suffix: "",
                 property_type: PropertyType::AlwaysReadOnly,
                 create_event: &|_| None,
+            }),
+            PropertyDescriptorWrapper::Bool(PropertyDescriptor {
+                name: "nintendo_layout",
+                pretty_name: "Use Nintendo Layout",
+                data: Some(self.nintendo_layout),
+                suffix: "",
+                property_type: PropertyType::ReadWrite,
+                create_event: &move |_| Some(DeviceCommand::NintendoLayoutToggle),
             }),
         ]
     }
@@ -546,6 +556,7 @@ pub enum DeviceEvent {
 /// Commands targeting the controller
 pub enum DeviceCommand {
     TurnOff,
+    NintendoLayoutToggle,
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
@@ -593,6 +604,7 @@ pub trait Device {
     fn get_device_state(&self) -> &DeviceState;
     fn get_device_state_mut(&mut self) -> &mut DeviceState;
     fn prepare_write(&mut self) {}
+    /// turn off the controller
     fn turn_off(&mut self) -> Result<(), DeviceError>;
     /// whether the app should periodically listen for packets from the controllers
     fn allow_passive_refresh(&mut self) -> bool;
@@ -662,12 +674,28 @@ pub trait Device {
     /// Only the battery level is actively queried because it is not communicated by the device on its own
     fn passive_refresh_state(&mut self) -> Result<Vec<ControllerInput>, DeviceError> {
         let mut pressed_buttons = vec![];
+        let nintendo_layout = self
+            .get_device_state_mut()
+            .device_properties
+            .nintendo_layout;
         if self.allow_passive_refresh() {
             if let Some(events) = self.wait_for_updates(PASSIVE_REFRESH_TIME_OUT) {
                 for event in events {
-                    match event {
-                        DeviceEvent::ButtonPressed(button) => pressed_buttons.push(button),
-                        DeviceEvent::Command(command) => self.try_apply(command)?,
+                    match (nintendo_layout, event) {
+                        (true, DeviceEvent::ButtonPressed(ControllerInput::A(pressed))) => {
+                            pressed_buttons.push(ControllerInput::B(pressed))
+                        }
+                        (true, DeviceEvent::ButtonPressed(ControllerInput::B(pressed))) => {
+                            pressed_buttons.push(ControllerInput::A(pressed))
+                        }
+                        (true, DeviceEvent::ButtonPressed(ControllerInput::X(pressed))) => {
+                            pressed_buttons.push(ControllerInput::Y(pressed))
+                        }
+                        (true, DeviceEvent::ButtonPressed(ControllerInput::Y(pressed))) => {
+                            pressed_buttons.push(ControllerInput::X(pressed))
+                        }
+                        (_, DeviceEvent::ButtonPressed(button)) => pressed_buttons.push(button),
+                        (_, DeviceEvent::Command(command)) => self.try_apply(command)?,
                         _ => self.get_device_state_mut().update_self_with_event(&event),
                     }
                 }
@@ -681,6 +709,14 @@ pub trait Device {
     fn try_apply(&mut self, command: DeviceCommand) -> Result<(), DeviceError> {
         match command {
             DeviceCommand::TurnOff => self.turn_off()?,
+            DeviceCommand::NintendoLayoutToggle => {
+                self.get_device_state_mut()
+                    .device_properties
+                    .nintendo_layout = !self
+                    .get_device_state_mut()
+                    .device_properties
+                    .nintendo_layout;
+            }
         }
         Ok(())
     }
