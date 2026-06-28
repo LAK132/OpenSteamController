@@ -120,7 +120,7 @@ fn connect_hid_devices() -> Result<Vec<DeviceBox>, DeviceError> {
     // On Linux and MacOS we can just take the first
     #[cfg(not(target_os = "windows"))]
     {
-        let devices: Vec<DeviceBox> = states
+        let mut devices: Vec<DeviceBox> = states
             .into_iter()
             // every 3rd device is a new controller
             // 0-2 is first
@@ -148,6 +148,9 @@ fn connect_hid_devices() -> Result<Vec<DeviceBox>, DeviceError> {
         if devices.is_empty() {
             Err(DeviceError::NoDeviceFound())
         } else {
+            devices.iter_mut().enumerate().for_each(|(i, p)| {
+                p.get_device_state_mut().device_properties.controller_id = i as u64
+            });
             Ok(devices)
         }
     }
@@ -188,7 +191,9 @@ fn connect_hid_devices() -> Result<Vec<DeviceBox>, DeviceError> {
         if devices.is_empty() {
             Err(DeviceError::NoDeviceFound())
         } else {
-            devices.iter_mut().enumerate().for_each(|(i, p)| p.get_device_state_mut().device_properties.controller_id = i as u64);
+            devices.iter_mut().enumerate().for_each(|(i, p)| {
+                p.get_device_state_mut().device_properties.controller_id = i as u64
+            });
             Ok(devices)
         }
     }
@@ -409,7 +414,7 @@ impl DeviceProperties {
             connected: None,
             previous_button_bitmap: 0,
             nintendo_layout: false,
-            controller_id: 99
+            controller_id: 99,
         }
     }
 
