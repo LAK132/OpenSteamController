@@ -6,7 +6,7 @@ use std::{
 #[cfg(target_os = "windows")]
 use image::{Rgba, RgbaImage};
 use open_steam_controller::devices::{
-    DeviceCommand, DeviceProperties, PropertyDescriptorWrapper, PropertyType, format_int_value
+    format_int_value, DeviceCommand, DeviceProperties, PropertyDescriptorWrapper, PropertyType,
 };
 #[cfg(target_os = "windows")]
 use tray_icon::menu::CheckMenuItem;
@@ -420,20 +420,16 @@ impl TrayApp {
                 continue;
             }
             {
-                        let update_sender = self.sender.clone();
-                        let menu_item = MenuItem::new(
-                         "Turn controller off",
-                            true,
-                            None,
-                        );
-                        let _ = menu.append(&menu_item);
-                        let menu_itme_id = menu_item.id().clone();
-                        new_callbacks.insert(
-                            menu_itme_id,
-                            Box::new(move || {
-                                    let _ = update_sender.send((device_id as u32, DeviceCommand::TurnOff));
-                            }),
-                        );
+                let update_sender = self.sender.clone();
+                let menu_item = MenuItem::new("Turn controller off", true, None);
+                let _ = menu.append(&menu_item);
+                let menu_itme_id = menu_item.id().clone();
+                new_callbacks.insert(
+                    menu_itme_id,
+                    Box::new(move || {
+                        let _ = update_sender.send((device_id as u32, DeviceCommand::TurnOff));
+                    }),
+                );
             }
 
             for property in device_properties.get_properties() {
