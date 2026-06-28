@@ -153,6 +153,7 @@ impl Tray for StatusTray {
                 }
                 .into(),
             );
+            let device_id = device_properties.controller_id;
             if !device_properties.connected.unwrap_or(false) {
                 menu_items.push(
                     StandardItem {
