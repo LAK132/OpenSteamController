@@ -188,6 +188,7 @@ fn connect_hid_devices() -> Result<Vec<DeviceBox>, DeviceError> {
         if devices.is_empty() {
             Err(DeviceError::NoDeviceFound())
         } else {
+            devices.iter_mut().enumerate().for_each(|(i, p)| p.get_device_state_mut().device_properties.controller_id = i as u64);
             Ok(devices)
         }
     }
@@ -209,6 +210,7 @@ pub struct DeviceProperties {
     pub connected: Option<bool>,
     pub previous_button_bitmap: u64,
     pub nintendo_layout: bool,
+    pub controller_id: u64,
 }
 
 impl Display for DeviceProperties {
@@ -407,6 +409,7 @@ impl DeviceProperties {
             connected: None,
             previous_button_bitmap: 0,
             nintendo_layout: false,
+            controller_id: 99
         }
     }
 

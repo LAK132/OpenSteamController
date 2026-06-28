@@ -407,9 +407,9 @@ impl TrayApp {
         }
 
         for (device_id, device_properties) in device_properties.iter().enumerate() {
-            let menu_item = MenuItem::new(format!("Controller: {device_id}",), false, None);
+            let menu_item = MenuItem::new(format!("Controller: {device_id}"), false, None);
             let _ = menu.append(&menu_item);
-
+            let device_id = device_properties.controller_id;
             if !device_properties.connected.unwrap_or(false) {
                 #[cfg(target_os = "macos")]
                 tray.set_title(Some(&format!("🎧?")));
@@ -418,6 +418,22 @@ impl TrayApp {
                 menu.append(&PredefinedMenuItem::separator()).unwrap();
 
                 continue;
+            }
+            {
+                        let update_sender = self.sender.clone();
+                        let menu_item = MenuItem::new(
+                         "Turn controller off",
+                            true,
+                            None,
+                        );
+                        let _ = menu.append(&menu_item);
+                        let menu_itme_id = menu_item.id().clone();
+                        new_callbacks.insert(
+                            menu_itme_id,
+                            Box::new(move || {
+                                    let _ = update_sender.send((device_id as u32, DeviceCommand::TurnOff));
+                            }),
+                        );
             }
 
             for property in device_properties.get_properties() {
