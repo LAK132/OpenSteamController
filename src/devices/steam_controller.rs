@@ -19,7 +19,7 @@ const FEATURE_REPORT: u8 = 0x01;
 /// Command to set a setting
 const SET_SETTING_CMD: u8 = 0x87;
 /// Response prefix for button event
-const RESPONSE_INPUT_EVENT: u8 = 0x45;
+const RESPONSE_INPUT_EVENT: [u8; 2] = [0x45, 0x42];
 /// Response prefix for status event
 const RESPONSE_STATUS_EVENT: u8 = 0x43;
 /// Response prefix for connection event
@@ -325,7 +325,7 @@ impl Device for SteamController {
                     &response[0..16].try_into().unwrap(),
                 ));
             }
-            RESPONSE_INPUT_EVENT => {
+            respone if RESPONSE_INPUT_EVENT.contains(&respone) => {
                 events.append(
                     &mut self.handle_buttons(response[BUTTON_LOCATION].try_into().unwrap()),
                 );
