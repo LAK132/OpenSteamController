@@ -2,7 +2,7 @@ use std::ops::Neg;
 
 use crate::debug_println;
 use crate::virtual_controller::{AbstractVirtualController, ControllerInput};
-use uinput::event::absolute::Position;
+use uinput::event::absolute::{Position, Hat};
 use uinput::event::Controller;
 use uinput::{event::controller, Device, Result};
 
@@ -77,6 +77,12 @@ const STICK_MAX: i32 = 32767;
 /// Trigger pressed down
 const TRIGGER_MAX: i32 = 255;
 
+const HAT_NONE: i32 = 0;
+const HAT_LEFT: i32 = -1;
+const HAT_RIGHT: i32 = 1;
+const HAT_UP: i32 = -1;
+const HAT_DOWN: i32 = 1;
+
 impl VirtualController {
     /// create new virtual controller
     pub fn new() -> Result<VirtualController> {
@@ -99,6 +105,16 @@ impl VirtualController {
             .event(uinput::event::Controller::DPad(controller::DPad::Down))?
             .event(uinput::event::Controller::DPad(controller::DPad::Left))?
             .event(uinput::event::Controller::DPad(controller::DPad::Right))?
+            .event(uinput::event::Absolute::Hat(Hat::X0))?
+            .min(HAT_LEFT)
+            .max(HAT_RIGHT)
+            .fuzz(0)
+            .flat(0)
+            .event(uinput::event::Absolute::Hat(Hat::Y0))?
+            .min(HAT_UP)
+            .max(HAT_DOWN)
+            .fuzz(0)
+            .flat(0)
             .event(uinput::event::Controller::GamePad(
                 controller::GamePad::Select,
             ))?
@@ -166,6 +182,50 @@ impl VirtualController {
 impl AbstractVirtualController for VirtualController {
     fn send_input(&mut self, input: ControllerInput) -> anyhow::Result<()> {
         match input {
+            ControllerInput::Left(pressed) => {
+                self.device.position(
+                    &uinput::event::absolute::Hat::X0,
+                    if pressed {
+                        HAT_LEFT
+                    } else {
+                        HAT_NONE
+                    },
+                )?;
+                self.perform_digital_input(input)?;
+            }
+            ControllerInput::Right(pressed) => {
+                self.device.position(
+                    &uinput::event::absolute::Hat::X0,
+                    if pressed {
+                        HAT_RIGHT
+                    } else {
+                        HAT_NONE
+                    },
+                )?;
+                self.perform_digital_input(input)?;
+            }
+            ControllerInput::Up(pressed) => {
+                self.device.position(
+                    &uinput::event::absolute::Hat::Y0,
+                    if pressed {
+                        HAT_UP
+                    } else {
+                        HAT_NONE
+                    },
+                )?;
+                self.perform_digital_input(input)?;
+            }
+            ControllerInput::Down(pressed) => {
+                self.device.position(
+                    &uinput::event::absolute::Hat::Y0,
+                    if pressed {
+                        HAT_DOWN
+                    } else {
+                        HAT_NONE
+                    },
+                )?;
+                self.perform_digital_input(input)?;
+            }
             ControllerInput::LeftTrackpad(_, _, _) => {
                 return Ok(());
             }
