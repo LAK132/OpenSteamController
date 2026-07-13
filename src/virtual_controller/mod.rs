@@ -41,7 +41,11 @@ pub enum ControllerInput {
     LeftTrigger(f32),
     RightTrigger(f32),
     LeftTrackpad(f32, f32, f32),
+    LeftTrackpadTouch(bool),
+    LeftTrackpadClick(bool),
     RightTrackpad(f32, f32, f32),
+    RightTrackpadTouch(bool),
+    RightTrackpadClick(bool),
     Ignore,
 }
 

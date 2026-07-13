@@ -189,12 +189,12 @@ impl SteamController {
                     Button::L5 =>               ControllerInput::LeftTrigger(states.contains(Button::L2) as u8 as f32), // TODO
                     Button::L1 =>               ControllerInput::LeftBumper(states.contains(Button::L1)), // TODO
                     Button::ThumbRightTouch =>  ControllerInput::Ignore, // TODO
-                    Button::PadRightTouch =>    ControllerInput::Ignore, // TODO
-                    Button::PadRightClick =>    ControllerInput::Ignore, // TODO
+                    Button::PadRightTouch =>    ControllerInput::RightTrackpadTouch(states.contains(Button::PadRightTouch)), // TODO
+                    Button::PadRightClick =>    ControllerInput::RightTrackpadClick(states.contains(Button::PadRightClick)), // TODO
                     Button::R2 =>               ControllerInput::RightTrigger(states.contains(Button::R2) as u8 as f32),
                     Button::ThumbLeftTouch =>   ControllerInput::Ignore, //TODO
-                    Button::PadLeftTouch =>     ControllerInput::Ignore,   // TODO
-                    Button::PadLeftClick =>     ControllerInput::LeftThumb(states.contains(Button::PadLeftClick)),   // TODO
+                    Button::PadLeftTouch =>     ControllerInput::LeftTrackpadTouch(states.contains(Button::PadLeftTouch)), // TODO
+                    Button::PadLeftClick =>     ControllerInput::LeftTrackpadClick(states.contains(Button::PadLeftClick)), // TODO
                     Button::L2 =>               ControllerInput::LeftTrigger(states.contains(Button::L2) as u8 as f32),
                     Button::GripRight =>        ControllerInput::Ignore, // TODO
                     Button::GripLeft =>         ControllerInput::Ignore,   // TODO
