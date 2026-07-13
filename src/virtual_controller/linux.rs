@@ -260,8 +260,7 @@ impl AbstractVirtualController for VirtualController {
                 self.right_trackpad_prev = None;
             }
             ControllerInput::LeftTrackpad(x, y, z) => {
-                let prev = self.left_trackpad_prev;
-                if let Some((prev_x, prev_y, prev_z)) = prev {
+                if let Some((prev_x, prev_y, prev_z)) = self.left_trackpad_prev {
                     let x_diff = x - prev_x;
                     let y_diff = y - prev_y;
                     let _z_diff = z - prev_z;
@@ -283,8 +282,7 @@ impl AbstractVirtualController for VirtualController {
                 }
             }
             ControllerInput::RightTrackpad(x, y, z) => {
-                let prev = self.right_trackpad_prev;
-                if let Some((prev_x, prev_y, prev_z)) = prev {
+                if let Some((prev_x, prev_y, prev_z)) = self.right_trackpad_prev {
                     let x_diff = x - prev_x;
                     let y_diff = y - prev_y;
                     let _z_diff = z - prev_z;
