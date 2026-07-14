@@ -2,9 +2,9 @@ use std::ops::Neg;
 
 use crate::debug_println;
 use crate::virtual_controller::{AbstractVirtualController, ControllerInput};
-use uinput::event::absolute::{Hat, Position};
+use uinput::event::{absolute, controller, relative};
 use uinput::event::Controller;
-use uinput::{event::controller, Device, Result};
+use uinput::{Device, Result};
 
 /// Xbox series x
 const PRODUCT_ID: u16 = 0x0b12;
@@ -12,6 +12,9 @@ const PRODUCT_ID: u16 = 0x0b12;
 const VENDOR_ID: u16 = 0x045e;
 /// Name of the controller
 const NAME: &str = "Xbox Controller";
+
+/// Name of the virtual mouse
+const MOUSE_NAME: &str = "Steam Controller virtual mouse";
 
 /// map generic controller input the the uinput specific events
 /// returns the controller input event and a bool specifying whether the input is pressed or
@@ -65,9 +68,22 @@ fn map_digital_controller_input(
     })
 }
 
+fn map_digital_mouse_input(
+    input: ControllerInput,
+) -> Option<(uinput::event::Controller, bool)> {
+    Some(match input {
+        ControllerInput::RightTrackpadClick(pressed) => (Controller::Mouse(controller::Mouse::Left), pressed),
+        // ControllerInput::LeftTrackpadClick(pressed) => (Controller::Mouse(controller::Mouse::Middle), pressed),
+        _ => return None,
+    })
+}
+
 /// A virtual controller to send button inputs
 pub struct VirtualController {
-    device: Device,
+    controller: Device,
+    mouse: Device,
+    left_trackpad_prev: Option<(f32, f32, f32)>,
+    right_trackpad_prev: Option<(f32, f32, f32)>,
 }
 
 /// Stick all the way in one direction
@@ -76,6 +92,9 @@ const STICK_MIN: i32 = -32768;
 const STICK_MAX: i32 = 32767;
 /// Trigger pressed down
 const TRIGGER_MAX: i32 = 255;
+
+const MOUSE_SPEED: f32 = 256.0;
+const WHEEL_SPEED: f32 = -64.0;
 
 const HAT_NONE: i32 = 0;
 const HAT_LEFT: i32 = -1;
@@ -86,7 +105,7 @@ const HAT_DOWN: i32 = 1;
 impl VirtualController {
     /// create new virtual controller
     pub fn new() -> Result<VirtualController> {
-        let device = uinput::default()?
+        let controller = uinput::default()?
             .name(NAME)?
             .vendor(VENDOR_ID)
             .product(PRODUCT_ID)
@@ -105,12 +124,12 @@ impl VirtualController {
             .event(uinput::event::Controller::DPad(controller::DPad::Down))?
             .event(uinput::event::Controller::DPad(controller::DPad::Left))?
             .event(uinput::event::Controller::DPad(controller::DPad::Right))?
-            .event(uinput::event::Absolute::Hat(Hat::X0))?
+            .event(uinput::event::Absolute::Hat(absolute::Hat::X0))?
             .min(HAT_LEFT)
             .max(HAT_RIGHT)
             .fuzz(0)
             .flat(0)
-            .event(uinput::event::Absolute::Hat(Hat::Y0))?
+            .event(uinput::event::Absolute::Hat(absolute::Hat::Y0))?
             .min(HAT_UP)
             .max(HAT_DOWN)
             .fuzz(0)
@@ -128,53 +147,77 @@ impl VirtualController {
                 controller::GamePad::ThumbR,
             ))?
             // Left stick
-            .event(uinput::event::absolute::Absolute::Position(Position::X))?
+            .event(uinput::event::Absolute::Position(absolute::Position::X))?
             .min(STICK_MIN)
             .max(STICK_MAX)
             .fuzz(0)
             .flat(0)
-            .event(uinput::event::absolute::Absolute::Position(Position::Y))?
+            .event(uinput::event::Absolute::Position(absolute::Position::Y))?
             .min(STICK_MIN)
             .max(STICK_MAX)
             .fuzz(0)
             .flat(0)
             // Right stick
-            .event(uinput::event::absolute::Absolute::Position(Position::RX))?
+            .event(uinput::event::Absolute::Position(absolute::Position::RX))?
             .min(STICK_MIN)
             .max(STICK_MAX)
             .fuzz(0)
             .flat(0)
-            .event(uinput::event::absolute::Absolute::Position(Position::RY))?
+            .event(uinput::event::Absolute::Position(absolute::Position::RY))?
             .min(STICK_MIN)
             .max(STICK_MAX)
             .fuzz(0)
             .flat(0)
             // Triggers
-            .event(uinput::event::absolute::Absolute::Position(Position::Z))?
+            .event(uinput::event::Absolute::Position(absolute::Position::Z))?
             .min(0)
             .max(TRIGGER_MAX)
             .fuzz(0)
             .flat(0)
-            .event(uinput::event::absolute::Absolute::Position(Position::RZ))?
+            .event(uinput::event::Absolute::Position(absolute::Position::RZ))?
             .min(0)
             .max(TRIGGER_MAX)
             .fuzz(0)
             .flat(0)
             .create()?;
-        Ok(Self { device })
+        let mouse = uinput::default()?
+            .name(MOUSE_NAME)?
+            .event(uinput::event::Relative::Position(relative::Position::X))?
+            .event(uinput::event::Relative::Position(relative::Position::Y))?
+            .event(uinput::event::Relative::Wheel(relative::Wheel::Horizontal))?
+            .event(uinput::event::Relative::Wheel(relative::Wheel::Vertical))?
+            .event(uinput::event::Controller::Mouse(controller::Mouse::Left))?
+            .event(uinput::event::Controller::Mouse(controller::Mouse::Middle))?
+            .event(uinput::event::Controller::Mouse(controller::Mouse::Right))?
+            .create()?;
+        let left_trackpad_prev: Option<(f32, f32, f32)> = None;
+        let right_trackpad_prev: Option<(f32, f32, f32)> = None;
+        Ok(Self {
+            controller,
+            mouse,
+            left_trackpad_prev,
+            right_trackpad_prev,
+        })
     }
 
     /// helper for digital inputs
     fn perform_digital_input(&mut self, input: ControllerInput) -> anyhow::Result<()> {
-        let Some((input, pressed)) = map_digital_controller_input(input) else {
+        if let Some((input, pressed)) = map_digital_controller_input(input) {
+            if pressed {
+                self.controller.press(&input)?;
+            } else {
+                self.controller.release(&input)?;
+            }
+        } else if let Some((input, pressed)) = map_digital_mouse_input(input) {
+            if pressed {
+                self.mouse.press(&input)?;
+            } else {
+                self.mouse.release(&input)?;
+            }
+        } else {
             debug_println!("Ignoring input {input:?}");
             return Ok(());
         };
-        if pressed {
-            self.device.press(&input)?;
-        } else {
-            self.device.release(&input)?;
-        }
         Ok(())
     }
 }
@@ -183,42 +226,86 @@ impl AbstractVirtualController for VirtualController {
     fn send_input(&mut self, input: ControllerInput) -> anyhow::Result<()> {
         match input {
             ControllerInput::Left(pressed) => {
-                self.device.position(
+                self.controller.position(
                     &uinput::event::absolute::Hat::X0,
                     if pressed { HAT_LEFT } else { HAT_NONE },
                 )?;
                 self.perform_digital_input(input)?;
             }
             ControllerInput::Right(pressed) => {
-                self.device.position(
+                self.controller.position(
                     &uinput::event::absolute::Hat::X0,
                     if pressed { HAT_RIGHT } else { HAT_NONE },
                 )?;
                 self.perform_digital_input(input)?;
             }
             ControllerInput::Up(pressed) => {
-                self.device.position(
+                self.controller.position(
                     &uinput::event::absolute::Hat::Y0,
                     if pressed { HAT_UP } else { HAT_NONE },
                 )?;
                 self.perform_digital_input(input)?;
             }
             ControllerInput::Down(pressed) => {
-                self.device.position(
+                self.controller.position(
                     &uinput::event::absolute::Hat::Y0,
                     if pressed { HAT_DOWN } else { HAT_NONE },
                 )?;
                 self.perform_digital_input(input)?;
             }
-            ControllerInput::LeftTrackpad(_, _, _) => {
-                return Ok(());
+            ControllerInput::LeftTrackpadTouch(_) => {
+                self.left_trackpad_prev = None;
             }
-            ControllerInput::RightTrackpad(_, _, _) => {
-                return Ok(());
+            ControllerInput::RightTrackpadTouch(_) => {
+                self.right_trackpad_prev = None;
+            }
+            ControllerInput::LeftTrackpad(x, y, z) => {
+                if let Some((prev_x, prev_y, prev_z)) = self.left_trackpad_prev {
+                    let x_diff = x - prev_x;
+                    let y_diff = y - prev_y;
+                    let _z_diff = z - prev_z;
+
+                    let x_out = (x_diff * WHEEL_SPEED) as i32;
+                    let y_out = (y_diff * WHEEL_SPEED) as i32;
+
+                    // Accumulate fractional output error
+                    let x_err = x_diff - (x_out as f32 / WHEEL_SPEED);
+                    let y_err = y_diff - (y_out as f32 / WHEEL_SPEED);
+                    self.left_trackpad_prev = Some((x - x_err, y - y_err, z));
+
+                    self.mouse.position(
+                        &uinput::event::relative::Wheel::Horizontal, x_out)?;
+                    self.mouse.position(
+                        &uinput::event::relative::Wheel::Vertical, y_out)?;
+                } else {
+                    self.left_trackpad_prev = Some((x, y, z));
+                }
+            }
+            ControllerInput::RightTrackpad(x, y, z) => {
+                if let Some((prev_x, prev_y, prev_z)) = self.right_trackpad_prev {
+                    let x_diff = x - prev_x;
+                    let y_diff = y - prev_y;
+                    let _z_diff = z - prev_z;
+
+                    let x_out = (x_diff * MOUSE_SPEED) as i32;
+                    let y_out = (y_diff * MOUSE_SPEED) as i32;
+
+                    // Accumulate fractional output error
+                    let x_err = x_diff - (x_out as f32 / MOUSE_SPEED);
+                    let y_err = y_diff - (y_out as f32 / MOUSE_SPEED);
+                    self.right_trackpad_prev = Some((x - x_err, y - y_err, z));
+
+                    self.mouse.position(
+                        &uinput::event::relative::Position::X, x_out)?;
+                    self.mouse.position(
+                        &uinput::event::relative::Position::Y, y_out.neg())?;
+                } else {
+                    self.right_trackpad_prev = Some((x, y, z));
+                }
             }
             ControllerInput::RightJoyStick(x, y) => {
                 let y = y.neg();
-                self.device.position(
+                self.controller.position(
                     &uinput::event::absolute::Position::RX,
                     if x.is_sign_positive() {
                         x * STICK_MAX as f32
@@ -226,7 +313,7 @@ impl AbstractVirtualController for VirtualController {
                         x.neg() * STICK_MIN as f32
                     } as i32,
                 )?;
-                self.device.position(
+                self.controller.position(
                     &uinput::event::absolute::Position::RY,
                     if y.is_sign_positive() {
                         y * STICK_MAX as f32
@@ -237,7 +324,7 @@ impl AbstractVirtualController for VirtualController {
             }
             ControllerInput::LeftJoyStick(x, y) => {
                 let y = y.neg();
-                self.device.position(
+                self.controller.position(
                     &uinput::event::absolute::Position::X,
                     if x.is_sign_positive() {
                         x * STICK_MAX as f32
@@ -245,7 +332,7 @@ impl AbstractVirtualController for VirtualController {
                         x.neg() * STICK_MIN as f32
                     } as i32,
                 )?;
-                self.device.position(
+                self.controller.position(
                     &uinput::event::absolute::Position::Y,
                     if y.is_sign_positive() {
                         y * STICK_MAX as f32
@@ -255,7 +342,7 @@ impl AbstractVirtualController for VirtualController {
                 )?;
             }
             ControllerInput::LeftTrigger(force) => {
-                self.device.position(
+                self.controller.position(
                     &uinput::event::absolute::Position::Z,
                     if force.is_sign_positive() {
                         force * TRIGGER_MAX as f32
@@ -265,7 +352,7 @@ impl AbstractVirtualController for VirtualController {
                 )?;
             }
             ControllerInput::RightTrigger(force) => {
-                self.device.position(
+                self.controller.position(
                     &uinput::event::absolute::Position::RZ,
                     if force.is_sign_positive() {
                         force * TRIGGER_MAX as f32
@@ -276,7 +363,8 @@ impl AbstractVirtualController for VirtualController {
             }
             digital_input => self.perform_digital_input(digital_input)?,
         }
-        self.device.synchronize()?;
+        self.controller.synchronize()?;
+        self.mouse.synchronize()?;
         Ok(())
     }
 }
