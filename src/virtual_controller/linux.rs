@@ -2,8 +2,8 @@ use std::ops::Neg;
 
 use crate::debug_println;
 use crate::virtual_controller::{AbstractVirtualController, ControllerInput};
-use uinput::event::{absolute, controller, relative};
 use uinput::event::Controller;
+use uinput::event::{absolute, controller, relative};
 use uinput::{Device, Result};
 
 /// Xbox series x
@@ -68,11 +68,11 @@ fn map_digital_controller_input(
     })
 }
 
-fn map_digital_mouse_input(
-    input: ControllerInput,
-) -> Option<(uinput::event::Controller, bool)> {
+fn map_digital_mouse_input(input: ControllerInput) -> Option<(uinput::event::Controller, bool)> {
     Some(match input {
-        ControllerInput::RightTrackpadClick(pressed) => (Controller::Mouse(controller::Mouse::Left), pressed),
+        ControllerInput::RightTrackpadClick(pressed) => {
+            (Controller::Mouse(controller::Mouse::Left), pressed)
+        }
         // ControllerInput::LeftTrackpadClick(pressed) => (Controller::Mouse(controller::Mouse::Middle), pressed),
         _ => return None,
     })
@@ -273,10 +273,10 @@ impl AbstractVirtualController for VirtualController {
                     let y_err = y_diff - (y_out as f32 / WHEEL_SPEED);
                     self.left_trackpad_prev = Some((x - x_err, y - y_err, z));
 
-                    self.mouse.position(
-                        &uinput::event::relative::Wheel::Horizontal, x_out)?;
-                    self.mouse.position(
-                        &uinput::event::relative::Wheel::Vertical, y_out)?;
+                    self.mouse
+                        .position(&uinput::event::relative::Wheel::Horizontal, x_out)?;
+                    self.mouse
+                        .position(&uinput::event::relative::Wheel::Vertical, y_out)?;
                 } else {
                     self.left_trackpad_prev = Some((x, y, z));
                 }
@@ -295,10 +295,10 @@ impl AbstractVirtualController for VirtualController {
                     let y_err = y_diff - (y_out as f32 / MOUSE_SPEED);
                     self.right_trackpad_prev = Some((x - x_err, y - y_err, z));
 
-                    self.mouse.position(
-                        &uinput::event::relative::Position::X, x_out)?;
-                    self.mouse.position(
-                        &uinput::event::relative::Position::Y, y_out.neg())?;
+                    self.mouse
+                        .position(&uinput::event::relative::Position::X, x_out)?;
+                    self.mouse
+                        .position(&uinput::event::relative::Position::Y, y_out.neg())?;
                 } else {
                     self.right_trackpad_prev = Some((x, y, z));
                 }
