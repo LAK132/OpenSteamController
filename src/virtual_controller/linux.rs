@@ -71,13 +71,13 @@ fn map_digital_controller_input(
 fn map_digital_mouse_input(input: ControllerInput) -> Option<(uinput::event::Controller, bool)> {
     Some(match input {
         ControllerInput::LeftMouse(pressed) => {
-            (Controller::Mouse(controller::Mouse::Left), pressed),
+            (Controller::Mouse(controller::Mouse::Left), pressed)
         }
         ControllerInput::MiddleMouse(pressed) => {
-            (Controller::Mouse(controller::Mouse::Middle), pressed),
+            (Controller::Mouse(controller::Mouse::Middle), pressed)
         }
         ControllerInput::RightMouse(pressed) => {
-            (Controller::Mouse(controller::Mouse::Right), pressed),
+            (Controller::Mouse(controller::Mouse::Right), pressed)
         }
         _ => return None,
     })
