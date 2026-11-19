@@ -7,8 +7,9 @@ use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
 
 use open_steam_controller::debug_println;
-use open_steam_controller::devices::Controller;
-use open_steam_controller::multi_threading::{self, ControllerReceiver};
+use open_steam_controller::devices::{Controller, DeviceCommand};
+use open_steam_controller::multi_threading::{self, ControllerReceiver, ControllerSender};
+use open_steam_controller::virtual_controller::ControllerOutput;
 
 #[cfg(target_os = "linux")]
 mod status_tray;
@@ -145,6 +146,7 @@ fn controller_handler(
     xinput_mode: bool,
     mut device: Controller,
     mut device_rx: ControllerReceiver,
+    mut device_tx: ControllerSender,
     exit: Arc<AtomicBool>,
 ) {
     use open_steam_controller::virtual_controller::{AbstractVirtualController, VirtualController};
@@ -191,6 +193,27 @@ fn controller_handler(
             let _ = device.try_apply(command);
         }
         device_rx.try_update_state(&device.device_properties());
+
+        if let Some(virt_controller) = &mut virt_controller {
+            match virt_controller.recv_output() {
+                Ok(events) => {
+                    for event in events {
+                        match event {
+                            ControllerOutput::Rumble(event) => {
+                                device_tx.send_command(DeviceCommand::Rumble(event));
+                            }
+                            ControllerOutput::Haptic(event) => {
+                                device_tx.send_command(DeviceCommand::Haptic(event));
+                            }
+                        }
+                    }
+                }
+                Err(e) => {
+                    debug_println!("Error getting controller output: {e}");
+                }
+            }
+        }
+
         run_counter += 1;
         if exit.load(std::sync::atomic::Ordering::Relaxed) {
             return;
@@ -281,10 +304,17 @@ fn main() {
             .into_iter()
             .map(|device| {
                 let (device_tx, device_rx) = multi_threading::create_controller_channel();
+                let device_tx_ff = device_tx.clone();
                 let local_exit = exit.clone();
                 (
                     std::thread::spawn(move || {
-                        controller_handler(xinput_mode, device, device_rx, local_exit);
+                        controller_handler(
+                            xinput_mode,
+                            device,
+                            device_rx,
+                            device_tx_ff,
+                            local_exit,
+                        );
                     }),
                     device_tx,
                 )

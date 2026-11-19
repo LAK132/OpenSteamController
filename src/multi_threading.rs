@@ -28,6 +28,7 @@ impl ControllerReceiver {
 
 /// Used to send commands to a controller thread
 /// and update the state for the front end
+#[derive(Clone)]
 pub struct ControllerSender {
     command_tx: Sender<DeviceCommand>,
     state: Arc<Mutex<DeviceProperties>>,
