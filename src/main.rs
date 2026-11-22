@@ -145,16 +145,18 @@ fn main() {
 
 /// Trackpad as mouse speed multiplier
 const TRACKPAD_MOUSE_SPEED: f32 = 256.0;
+/// Mouse movement threshold to trigger trackpad haptics
 const TRACKPAD_MOUSE_FEEDBACK_MAX: f32 = TRACKPAD_MOUSE_SPEED / 4.0;
 /// Trackpad as wheel speed multiplier
-const TRACKPAD_WHEEL_SPEED: f32 = -64.0;
-const TRACKPAD_WHEEL_FEEDBACK_MAX: f32 = 1.0;
+const TRACKPAD_WHEEL_SPEED: f32 = 64.0;
 /// Joystick as mouse speed multiplier
 const STICK_MOUSE_SPEED: f32 = 8.0;
 /// Joystick as mouse deadzone
 const STICK_MOUSE_DEADZONE: f32 = 0.025;
 /// Joystick as wheel speed multiplier
 const STICK_WHEEL_SPEED: f32 = 1.0;
+/// Joystick as wheel deadzone
+const STICK_WHEEL_DEADZONE: f32 = STICK_MOUSE_DEADZONE;
 
 enum MappedOutput {
     Device(DeviceCommand),
@@ -164,10 +166,11 @@ enum MappedOutput {
 #[derive(Debug, Clone)]
 struct LayoutState {
     pub buttons_prev: DeviceButton,
-    pub left_trackpad_prev: Option<(f32, f32, f32)>,
-    pub right_trackpad_prev: Option<(f32, f32, f32)>,
-    pub wheel_feedback: (f32, f32),
+    pub mouse_trackpad_prev: Option<(f32, f32, f32)>,
+    pub mouse_error: (f32, f32),
     pub mouse_feedback: f32,
+    pub wheel_trackpad_prev: Option<(f32, f32, f32)>,
+    pub wheel_error: (f32, f32),
 }
 
 trait ControllerLayout {
@@ -176,6 +179,106 @@ trait ControllerLayout {
         state: &mut LayoutState,
         device_properties: &DeviceProperties,
     ) -> Vec<MappedOutput>;
+
+    fn trackpad_mouse(
+        (x, y, z): (f32, f32, f32),
+        state: &mut LayoutState,
+    ) -> Option<(i32, i32, bool)> {
+        let prev = state.mouse_trackpad_prev;
+        state.mouse_trackpad_prev = Some((x, y, z));
+        prev.map(|(prev_x, prev_y, _prev_z)| {
+            let x = (x - prev_x) * TRACKPAD_MOUSE_SPEED;
+            let y = (y - prev_y) * TRACKPAD_MOUSE_SPEED;
+
+            let x = x + state.mouse_error.0;
+            let x_out = x as i32;
+            state.mouse_error.0 = x - (x_out as f32);
+
+            let y = y + state.mouse_error.1;
+            let y_out = y as i32;
+            state.mouse_error.1 = y - (y_out as f32);
+
+            state.mouse_feedback +=
+                ((x_out as f32 * x_out as f32) + (y_out as f32 * y_out as f32)).sqrt();
+
+            if state.mouse_feedback >= TRACKPAD_MOUSE_FEEDBACK_MAX {
+                state.mouse_feedback %= TRACKPAD_MOUSE_FEEDBACK_MAX;
+                (x_out, y_out, true)
+            } else {
+                (x_out, y_out, false)
+            }
+        })
+    }
+
+    fn trackpad_smooth_wheel(
+        (x, y, z): (f32, f32, f32),
+        state: &mut LayoutState,
+    ) -> Option<(f32, f32)> {
+        let prev = state.wheel_trackpad_prev;
+        state.wheel_trackpad_prev = Some((x, y, z));
+        prev.map(|(prev_x, prev_y, _prev_z)| {
+            (
+                (x - prev_x) * -TRACKPAD_WHEEL_SPEED,
+                (y - prev_y) * -TRACKPAD_WHEEL_SPEED,
+            )
+        })
+    }
+
+    fn trackpad_digital_wheel(
+        (x, y, z): (f32, f32, f32),
+        state: &mut LayoutState,
+    ) -> Option<(i32, i32, bool)> {
+        let prev = state.wheel_trackpad_prev;
+        state.wheel_trackpad_prev = Some((x, y, z));
+        prev.map(|(prev_x, prev_y, _prev_z)| {
+            let x = (x - prev_x) * -TRACKPAD_WHEEL_SPEED;
+            let y = (y - prev_y) * -TRACKPAD_WHEEL_SPEED;
+
+            let x = x + state.wheel_error.0;
+            let x_out = x as i32;
+            state.wheel_error.0 = x - (x_out as f32);
+
+            let y = y + state.wheel_error.1;
+            let y_out = y as i32;
+            state.wheel_error.1 = y - (y_out as f32);
+
+            (x_out, y_out, x_out != 0 || y_out != 0)
+        })
+    }
+
+    fn joystick_mouse((x, y): (f32, f32), state: &mut LayoutState) -> Option<(i32, i32)> {
+        let x2 = x * x;
+        let y2 = y * y;
+        if (x2 + y2) < STICK_MOUSE_DEADZONE {
+            return None;
+        }
+
+        let x = x2 * x.signum() * STICK_MOUSE_SPEED;
+        let y = y2 * y.signum() * STICK_MOUSE_SPEED;
+
+        let x = x + state.mouse_error.0;
+        let x_out = x as i32;
+        state.mouse_error.0 = x - (x_out as f32);
+
+        let y = y + state.mouse_error.1;
+        let y_out = y as i32;
+        state.mouse_error.1 = y - (y_out as f32);
+
+        Some((x_out, y_out))
+    }
+
+    fn joystick_wheel((x, y): (f32, f32)) -> Option<(f32, f32)> {
+        let x2 = x * x;
+        let y2 = y * y;
+        if (x2 + y2) < STICK_WHEEL_DEADZONE {
+            return None;
+        }
+
+        let x = x2 * x.signum() * STICK_WHEEL_SPEED;
+        let y = y2 * y.signum() * STICK_WHEEL_SPEED;
+
+        Some((x, y))
+    }
 }
 
 struct XboxLayout {}
@@ -248,77 +351,48 @@ impl ControllerLayout for XboxLayout {
             }
             DeviceOutput::RightGripTouch(_) => vec![],
 
-            DeviceOutput::LeftTrackpad(x, y, z) => {
-                let prev = state.left_trackpad_prev;
-                state.left_trackpad_prev = Some((x, y, z));
-                if let Some((prev_x, prev_y, _prev_z)) = prev {
-                    let x = (x - prev_x) * TRACKPAD_WHEEL_SPEED;
-                    let y = (y - prev_y) * TRACKPAD_WHEEL_SPEED;
-
-                    let mut result = vec![MappedOutput::Controller(ControllerInput::Wheel(x, y))];
-
-                    let (ref mut f_x, ref mut f_y) = &mut state.wheel_feedback;
-                    *f_x += x;
-                    *f_y += y;
-                    let f_x_abs = f_x.abs();
-                    let f_y_abs = f_y.abs();
-                    if f_x_abs >= TRACKPAD_WHEEL_FEEDBACK_MAX
-                        || f_y_abs >= TRACKPAD_WHEEL_FEEDBACK_MAX
-                    {
-                        result.push(MappedOutput::Device(DeviceCommand::Haptic(HapticEvent {
-                            pad: HapticSide::Left,
-                            duration: 0x000A,
-                            interval: 0x0000,
-                            count: 0x0001,
-                            gain: 0xff,
-                        })));
-                        if f_x_abs >= TRACKPAD_WHEEL_FEEDBACK_MAX {
-                            *f_x = (f_x_abs % TRACKPAD_WHEEL_FEEDBACK_MAX) * f_x.signum();
+            DeviceOutput::LeftTrackpad(x, y, z) => Self::trackpad_digital_wheel((x, y, z), state)
+                .map_or_else(
+                    || vec![],
+                    |(x, y, h)| {
+                        let mut result =
+                            vec![MappedOutput::Controller(ControllerInput::Wheel(x, y))];
+                        if h {
+                            result.push(MappedOutput::Device(DeviceCommand::Haptic(HapticEvent {
+                                pad: HapticSide::Left,
+                                duration: 0x000A,
+                                interval: 0x0000,
+                                count: 0x0001,
+                                gain: 0xff,
+                            })));
                         }
-                        if f_y_abs >= TRACKPAD_WHEEL_FEEDBACK_MAX {
-                            *f_y = (f_y_abs % TRACKPAD_WHEEL_FEEDBACK_MAX) * f_y.signum();
-                        }
-                    }
-
-                    result
-                } else {
-                    state.left_trackpad_prev = Some((x, y, z));
-                    vec![]
-                }
-            }
+                        result
+                    },
+                ),
             DeviceOutput::LeftTrackpadClick(_) => vec![],
             DeviceOutput::LeftTrackpadTouch(_) => {
-                state.left_trackpad_prev = None;
+                state.wheel_trackpad_prev = None;
                 vec![]
             }
 
-            DeviceOutput::RightTrackpad(x, y, z) => {
-                let prev = state.right_trackpad_prev;
-                state.right_trackpad_prev = Some((x, y, z));
-                if let Some((prev_x, prev_y, _prev_z)) = prev {
-                    let x = (x - prev_x) * TRACKPAD_MOUSE_SPEED;
-                    let y = (y - prev_y) * TRACKPAD_MOUSE_SPEED;
-
-                    let mut result = vec![MappedOutput::Controller(ControllerInput::Mouse(x, y))];
-
-                    state.mouse_feedback += ((x * x) + (y * y)).sqrt();
-                    if state.mouse_feedback >= TRACKPAD_MOUSE_FEEDBACK_MAX {
-                        result.push(MappedOutput::Device(DeviceCommand::Haptic(HapticEvent {
-                            pad: HapticSide::Right,
-                            duration: 0x000A,
-                            interval: 0x0000,
-                            count: 0x0001,
-                            gain: 0xff,
-                        })));
-                        state.mouse_feedback %= TRACKPAD_MOUSE_FEEDBACK_MAX;
-                    }
-
-                    result
-                } else {
-                    state.right_trackpad_prev = Some((x, y, z));
-                    vec![]
-                }
-            }
+            DeviceOutput::RightTrackpad(x, y, z) => Self::trackpad_mouse((x, y, z), state)
+                .map_or_else(
+                    || vec![],
+                    |(x, y, h)| {
+                        let mut result =
+                            vec![MappedOutput::Controller(ControllerInput::Mouse(x, y))];
+                        if h {
+                            result.push(MappedOutput::Device(DeviceCommand::Haptic(HapticEvent {
+                                pad: HapticSide::Right,
+                                duration: 0x000A,
+                                interval: 0x0000,
+                                count: 0x0001,
+                                gain: 0xff,
+                            })));
+                        }
+                        result
+                    },
+                ),
             DeviceOutput::RightTrackpadClick(p) => {
                 vec![
                     MappedOutput::Controller(ControllerInput::LeftMouse(p)),
@@ -332,7 +406,7 @@ impl ControllerLayout for XboxLayout {
                 ]
             }
             DeviceOutput::RightTrackpadTouch(_) => {
-                state.right_trackpad_prev = None;
+                state.mouse_trackpad_prev = None;
                 vec![]
             }
         }
@@ -405,77 +479,48 @@ impl ControllerLayout for NintendoLayout {
             }
             DeviceOutput::RightGripTouch(_) => vec![],
 
-            DeviceOutput::LeftTrackpad(x, y, z) => {
-                let prev = state.left_trackpad_prev;
-                state.left_trackpad_prev = Some((x, y, z));
-                if let Some((prev_x, prev_y, _prev_z)) = prev {
-                    let x = (x - prev_x) * TRACKPAD_WHEEL_SPEED;
-                    let y = (y - prev_y) * TRACKPAD_WHEEL_SPEED;
-
-                    let mut result = vec![MappedOutput::Controller(ControllerInput::Wheel(x, y))];
-
-                    let (ref mut f_x, ref mut f_y) = &mut state.wheel_feedback;
-                    *f_x += x;
-                    *f_y += y;
-                    let f_x_abs = f_x.abs();
-                    let f_y_abs = f_y.abs();
-                    if f_x_abs >= TRACKPAD_WHEEL_FEEDBACK_MAX
-                        || f_y_abs >= TRACKPAD_WHEEL_FEEDBACK_MAX
-                    {
-                        result.push(MappedOutput::Device(DeviceCommand::Haptic(HapticEvent {
-                            pad: HapticSide::Left,
-                            duration: 0x000A,
-                            interval: 0x0000,
-                            count: 0x0001,
-                            gain: 0xff,
-                        })));
-                        if f_x_abs >= TRACKPAD_WHEEL_FEEDBACK_MAX {
-                            *f_x = (f_x_abs % TRACKPAD_WHEEL_FEEDBACK_MAX) * f_x.signum();
+            DeviceOutput::LeftTrackpad(x, y, z) => Self::trackpad_digital_wheel((x, y, z), state)
+                .map_or_else(
+                    || vec![],
+                    |(x, y, h)| {
+                        let mut result =
+                            vec![MappedOutput::Controller(ControllerInput::Wheel(x, y))];
+                        if h {
+                            result.push(MappedOutput::Device(DeviceCommand::Haptic(HapticEvent {
+                                pad: HapticSide::Left,
+                                duration: 0x000A,
+                                interval: 0x0000,
+                                count: 0x0001,
+                                gain: 0xff,
+                            })));
                         }
-                        if f_y_abs >= TRACKPAD_WHEEL_FEEDBACK_MAX {
-                            *f_y = (f_y_abs % TRACKPAD_WHEEL_FEEDBACK_MAX) * f_y.signum();
-                        }
-                    }
-
-                    result
-                } else {
-                    state.left_trackpad_prev = Some((x, y, z));
-                    vec![]
-                }
-            }
+                        result
+                    },
+                ),
             DeviceOutput::LeftTrackpadClick(_) => vec![],
             DeviceOutput::LeftTrackpadTouch(_) => {
-                state.left_trackpad_prev = None;
+                state.wheel_trackpad_prev = None;
                 vec![]
             }
 
-            DeviceOutput::RightTrackpad(x, y, z) => {
-                let prev = state.right_trackpad_prev;
-                state.right_trackpad_prev = Some((x, y, z));
-                if let Some((prev_x, prev_y, _prev_z)) = prev {
-                    let x = (x - prev_x) * TRACKPAD_MOUSE_SPEED;
-                    let y = (y - prev_y) * TRACKPAD_MOUSE_SPEED;
-
-                    let mut result = vec![MappedOutput::Controller(ControllerInput::Mouse(x, y))];
-
-                    state.mouse_feedback += ((x * x) + (y * y)).sqrt();
-                    if state.mouse_feedback >= TRACKPAD_MOUSE_FEEDBACK_MAX {
-                        result.push(MappedOutput::Device(DeviceCommand::Haptic(HapticEvent {
-                            pad: HapticSide::Right,
-                            duration: 0x000A,
-                            interval: 0x0000,
-                            count: 0x0001,
-                            gain: 0xff,
-                        })));
-                        state.mouse_feedback %= TRACKPAD_MOUSE_FEEDBACK_MAX;
-                    }
-
-                    result
-                } else {
-                    state.right_trackpad_prev = Some((x, y, z));
-                    vec![]
-                }
-            }
+            DeviceOutput::RightTrackpad(x, y, z) => Self::trackpad_mouse((x, y, z), state)
+                .map_or_else(
+                    || vec![],
+                    |(x, y, h)| {
+                        let mut result =
+                            vec![MappedOutput::Controller(ControllerInput::Mouse(x, y))];
+                        if h {
+                            result.push(MappedOutput::Device(DeviceCommand::Haptic(HapticEvent {
+                                pad: HapticSide::Right,
+                                duration: 0x000A,
+                                interval: 0x0000,
+                                count: 0x0001,
+                                gain: 0xff,
+                            })));
+                        }
+                        result
+                    },
+                ),
             DeviceOutput::RightTrackpadClick(p) => {
                 vec![
                     MappedOutput::Controller(ControllerInput::LeftMouse(p)),
@@ -489,7 +534,7 @@ impl ControllerLayout for NintendoLayout {
                 ]
             }
             DeviceOutput::RightTrackpadTouch(_) => {
-                state.right_trackpad_prev = None;
+                state.mouse_trackpad_prev = None;
                 vec![]
             }
         }
@@ -526,32 +571,16 @@ impl ControllerLayout for LizardLayout {
                 }
             }
 
-            DeviceOutput::LeftJoyStick(x, y) => {
-                let x2 = x * x;
-                let y2 = y * y;
-                if (x2 + y2) > STICK_MOUSE_DEADZONE {
-                    vec![MappedOutput::Controller(ControllerInput::Wheel(
-                        x2 * x.signum() * STICK_WHEEL_SPEED,
-                        y2 * y.signum() * STICK_WHEEL_SPEED,
-                    ))]
-                } else {
-                    vec![]
-                }
-            }
+            DeviceOutput::LeftJoyStick(x, y) => Self::joystick_wheel((x, y)).map_or_else(
+                || vec![],
+                |(x, y)| vec![MappedOutput::Controller(ControllerInput::SmoothWheel(x, y))],
+            ),
             DeviceOutput::LeftJoyStickTouch(_) => vec![],
 
-            DeviceOutput::RightJoyStick(x, y) => {
-                let x2 = x * x;
-                let y2 = y * y;
-                if (x2 + y2) > STICK_MOUSE_DEADZONE {
-                    vec![MappedOutput::Controller(ControllerInput::Mouse(
-                        x2 * x.signum() * STICK_MOUSE_SPEED,
-                        y2 * y.signum() * STICK_MOUSE_SPEED,
-                    ))]
-                } else {
-                    vec![]
-                }
-            }
+            DeviceOutput::RightJoyStick(x, y) => Self::joystick_mouse((x, y), state).map_or_else(
+                || vec![],
+                |(x, y)| vec![MappedOutput::Controller(ControllerInput::Mouse(x, y))],
+            ),
             DeviceOutput::RightJoyStickTouch(_) => vec![],
 
             DeviceOutput::L1(_) => vec![],
@@ -572,75 +601,48 @@ impl ControllerLayout for LizardLayout {
             DeviceOutput::RightTrigger(_) => vec![],
             DeviceOutput::RightGripTouch(_) => vec![],
 
-            DeviceOutput::LeftTrackpad(x, y, z) => {
-                let prev = state.left_trackpad_prev;
-                state.left_trackpad_prev = Some((x, y, z));
-                if let Some((prev_x, prev_y, _prev_z)) = prev {
-                    let x = (x - prev_x) * TRACKPAD_WHEEL_SPEED;
-                    let y = (y - prev_y) * TRACKPAD_WHEEL_SPEED;
-
-                    let mut result = vec![MappedOutput::Controller(ControllerInput::Wheel(x, y))];
-
-                    let (ref mut f_x, ref mut f_y) = &mut state.wheel_feedback;
-                    *f_x += x;
-                    *f_y += y;
-                    let f_x_abs = f_x.abs();
-                    let f_y_abs = f_y.abs();
-                    if f_x_abs >= TRACKPAD_WHEEL_FEEDBACK_MAX
-                        || f_y_abs >= TRACKPAD_WHEEL_FEEDBACK_MAX
-                    {
-                        result.push(MappedOutput::Device(DeviceCommand::Haptic(HapticEvent {
-                            pad: HapticSide::Left,
-                            duration: 0x000A,
-                            interval: 0x0000,
-                            count: 0x0001,
-                            gain: 0xff,
-                        })));
-                        if f_x_abs >= TRACKPAD_WHEEL_FEEDBACK_MAX {
-                            *f_x = (f_x_abs % TRACKPAD_WHEEL_FEEDBACK_MAX) * f_x.signum();
+            DeviceOutput::LeftTrackpad(x, y, z) => Self::trackpad_digital_wheel((x, y, z), state)
+                .map_or_else(
+                    || vec![],
+                    |(x, y, h)| {
+                        let mut result =
+                            vec![MappedOutput::Controller(ControllerInput::Wheel(x, y))];
+                        if h {
+                            result.push(MappedOutput::Device(DeviceCommand::Haptic(HapticEvent {
+                                pad: HapticSide::Left,
+                                duration: 0x000A,
+                                interval: 0x0000,
+                                count: 0x0001,
+                                gain: 0xff,
+                            })));
                         }
-                        if f_y_abs >= TRACKPAD_WHEEL_FEEDBACK_MAX {
-                            *f_y = (f_y_abs % TRACKPAD_WHEEL_FEEDBACK_MAX) * f_y.signum();
-                        }
-                    }
-
-                    result
-                } else {
-                    vec![]
-                }
-            }
+                        result
+                    },
+                ),
             DeviceOutput::LeftTrackpadClick(_) => vec![],
             DeviceOutput::LeftTrackpadTouch(_) => {
-                state.left_trackpad_prev = None;
+                state.wheel_trackpad_prev = None;
                 vec![]
             }
 
-            DeviceOutput::RightTrackpad(x, y, z) => {
-                let prev = state.right_trackpad_prev;
-                state.right_trackpad_prev = Some((x, y, z));
-                if let Some((prev_x, prev_y, _prev_z)) = prev {
-                    let x = (x - prev_x) * TRACKPAD_MOUSE_SPEED;
-                    let y = (y - prev_y) * TRACKPAD_MOUSE_SPEED;
-
-                    let mut result = vec![MappedOutput::Controller(ControllerInput::Mouse(x, y))];
-
-                    state.mouse_feedback += ((x * x) + (y * y)).sqrt();
-                    if state.mouse_feedback >= TRACKPAD_MOUSE_FEEDBACK_MAX {
-                        result.push(MappedOutput::Device(DeviceCommand::Haptic(HapticEvent {
-                            pad: HapticSide::Right,
-                            duration: 0x000A,
-                            interval: 0x0000,
-                            count: 0x0001,
-                            gain: 0xff,
-                        })));
-                        state.mouse_feedback %= TRACKPAD_MOUSE_FEEDBACK_MAX;
-                    }
-
-                    result
-                } else {
-                    vec![]
-                }
-            }
+            DeviceOutput::RightTrackpad(x, y, z) => Self::trackpad_mouse((x, y, z), state)
+                .map_or_else(
+                    || vec![],
+                    |(x, y, h)| {
+                        let mut result =
+                            vec![MappedOutput::Controller(ControllerInput::Mouse(x, y))];
+                        if h {
+                            result.push(MappedOutput::Device(DeviceCommand::Haptic(HapticEvent {
+                                pad: HapticSide::Right,
+                                duration: 0x000A,
+                                interval: 0x0000,
+                                count: 0x0001,
+                                gain: 0xff,
+                            })));
+                        }
+                        result
+                    },
+                ),
             DeviceOutput::RightTrackpadClick(p) => {
                 vec![
                     MappedOutput::Controller(ControllerInput::LeftMouse(p)),
@@ -654,7 +656,7 @@ impl ControllerLayout for LizardLayout {
                 ]
             }
             DeviceOutput::RightTrackpadTouch(_) => {
-                state.right_trackpad_prev = None;
+                state.mouse_trackpad_prev = None;
                 vec![]
             }
         }
@@ -793,10 +795,11 @@ fn controller_handler(
     let mut virt_controller: Option<VirtualController> = None;
     let mut state = LayoutState {
         buttons_prev: DeviceButton::from_bits_truncate(0),
-        left_trackpad_prev: None,
-        right_trackpad_prev: None,
-        wheel_feedback: (0.0, 0.0),
+        mouse_trackpad_prev: None,
+        mouse_error: (0.0, 0.0),
         mouse_feedback: 0.0,
+        wheel_trackpad_prev: None,
+        wheel_error: (0.0, 0.0),
     };
     // Run loop
     let mut run_counter = 0;
@@ -820,10 +823,11 @@ fn controller_handler(
                             virt_controller = Some(vc);
                             state = LayoutState {
                                 buttons_prev: DeviceButton::from_bits_truncate(0),
-                                left_trackpad_prev: None,
-                                right_trackpad_prev: None,
-                                wheel_feedback: (0.0, 0.0),
+                                mouse_trackpad_prev: None,
+                                mouse_error: (0.0, 0.0),
                                 mouse_feedback: 0.0,
+                                wheel_trackpad_prev: None,
+                                wheel_error: (0.0, 0.0),
                             }
                         }
                         Err(e) => eprintln!("Failed to create virtual controller {e}"),

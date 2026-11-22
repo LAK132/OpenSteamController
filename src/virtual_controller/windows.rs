@@ -86,6 +86,9 @@ impl AbstractVirtualController for VirtualController {
             ControllerInput::Wheel(_, _) => {
                 return Ok(());
             }
+            ControllerInput::SmoothWheel(_, _) => {
+                return Ok(());
+            }
             ControllerInput::Mouse(_, _) => {
                 return Ok(());
             }

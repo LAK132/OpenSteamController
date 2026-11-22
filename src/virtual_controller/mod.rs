@@ -77,8 +77,11 @@ pub enum ControllerInput {
     RightGrip2(bool),
 
     // Mouse
-    Wheel(f32, f32),
-    Mouse(f32, f32),
+    /// Interger line scroll
+    Wheel(i32, i32),
+    /// Fractional line scroll
+    SmoothWheel(f32, f32),
+    Mouse(i32, i32),
     LeftMouse(bool),
     MiddleMouse(bool),
     RightMouse(bool),

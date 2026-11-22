@@ -102,8 +102,7 @@ pub struct VirtualController {
     controller: VirtualDevice,
     mouse: VirtualDevice,
     force_feedback_events: Vec<ControllerOutput>,
-    mouse_error: (f32, f32),
-    wheel_error: (f32, f32),
+    smooth_wheel_error: (f32, f32),
 }
 
 /// Stick all the way in one direction
@@ -112,6 +111,8 @@ const STICK_MIN: i32 = -32768;
 const STICK_MAX: i32 = 32767;
 /// Trigger pressed down
 const TRIGGER_MAX: i32 = 255;
+/// When using REL_(H)WHEEL_HI_RES, 120 is a complete line
+const SMOOTH_WHEEL_MULTIPLIER: i32 = 120;
 
 // const FORCEFEEDBACK_MAX: u32 = 16;
 
@@ -214,8 +215,8 @@ impl VirtualController {
         let mut mouse_axes = AttributeSet::<RelativeAxisCode>::new();
         mouse_axes.insert(RelativeAxisCode::REL_X);
         mouse_axes.insert(RelativeAxisCode::REL_Y);
-        mouse_axes.insert(RelativeAxisCode::REL_HWHEEL);
-        mouse_axes.insert(RelativeAxisCode::REL_WHEEL);
+        mouse_axes.insert(RelativeAxisCode::REL_HWHEEL_HI_RES);
+        mouse_axes.insert(RelativeAxisCode::REL_WHEEL_HI_RES);
         let mouse = VirtualDevice::builder()?
             .name(MOUSE_NAME)
             .with_keys(&mouse_keys)?
@@ -227,8 +228,7 @@ impl VirtualController {
             controller,
             mouse,
             force_feedback_events: Vec::new(),
-            mouse_error: (0.0, 0.0),
-            wheel_error: (0.0, 0.0),
+            smooth_wheel_error: (0.0, 0.0),
         })
     }
 
@@ -370,44 +370,50 @@ impl AbstractVirtualController for VirtualController {
             }
 
             ControllerInput::Wheel(x, y) => {
-                let x = x + self.wheel_error.0;
-                let x_out = x as i32;
-                self.wheel_error.0 = x - (x_out as f32);
+                mevents.push(InputEvent::new(
+                    EventType::RELATIVE.0,
+                    RelativeAxisCode::REL_HWHEEL_HI_RES.0,
+                    x * SMOOTH_WHEEL_MULTIPLIER,
+                ));
+                mevents.push(InputEvent::new(
+                    EventType::RELATIVE.0,
+                    RelativeAxisCode::REL_WHEEL_HI_RES.0,
+                    y * SMOOTH_WHEEL_MULTIPLIER,
+                ));
+            }
+            ControllerInput::SmoothWheel(x, y) => {
+                let x = x * (SMOOTH_WHEEL_MULTIPLIER as f32);
+                let y = y * (SMOOTH_WHEEL_MULTIPLIER as f32);
 
-                let y = y + self.wheel_error.1;
+                let x = x + self.smooth_wheel_error.0;
+                let x_out = x as i32;
+                self.smooth_wheel_error.0 = x - (x_out as f32);
+
+                let y = y + self.smooth_wheel_error.1;
                 let y_out = y as i32;
-                self.wheel_error.1 = y - (y_out as f32);
+                self.smooth_wheel_error.1 = y - (y_out as f32);
 
                 mevents.push(InputEvent::new(
                     EventType::RELATIVE.0,
-                    RelativeAxisCode::REL_HWHEEL.0,
+                    RelativeAxisCode::REL_HWHEEL_HI_RES.0,
                     x_out,
                 ));
                 mevents.push(InputEvent::new(
                     EventType::RELATIVE.0,
-                    RelativeAxisCode::REL_WHEEL.0,
+                    RelativeAxisCode::REL_WHEEL_HI_RES.0,
                     y_out,
                 ));
             }
             ControllerInput::Mouse(x, y) => {
-                let x = x + self.mouse_error.0;
-                let x_out = x as i32;
-                self.mouse_error.0 = x - (x_out as f32);
-
-                let y = y + self.mouse_error.1;
-                let y_out = y as i32;
-                self.mouse_error.1 = y - (y_out as f32);
-                let y_out = y_out.neg();
-
                 mevents.push(InputEvent::new(
                     EventType::RELATIVE.0,
                     RelativeAxisCode::REL_X.0,
-                    x_out,
+                    x,
                 ));
                 mevents.push(InputEvent::new(
                     EventType::RELATIVE.0,
                     RelativeAxisCode::REL_Y.0,
-                    y_out,
+                    -y,
                 ));
             }
 
