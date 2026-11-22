@@ -176,6 +176,7 @@ struct LayoutState {
 trait ControllerLayout {
     fn map_device_output(
         input: DeviceOutput,
+        time: u32,
         state: &mut LayoutState,
         device_properties: &DeviceProperties,
     ) -> Vec<MappedOutput>;
@@ -288,6 +289,7 @@ struct LizardLayout {}
 impl ControllerLayout for XboxLayout {
     fn map_device_output(
         input: DeviceOutput,
+        _time: u32,
         state: &mut LayoutState,
         _device_properties: &DeviceProperties,
     ) -> Vec<MappedOutput> {
@@ -409,6 +411,9 @@ impl ControllerLayout for XboxLayout {
                 state.mouse_trackpad_prev = None;
                 vec![]
             }
+
+            DeviceOutput::Gyro(_, _, _) => vec![],
+            DeviceOutput::Accel(_, _, _) => vec![],
         }
     }
 }
@@ -416,6 +421,7 @@ impl ControllerLayout for XboxLayout {
 impl ControllerLayout for NintendoLayout {
     fn map_device_output(
         input: DeviceOutput,
+        _time: u32,
         state: &mut LayoutState,
         _device_properties: &DeviceProperties,
     ) -> Vec<MappedOutput> {
@@ -537,6 +543,9 @@ impl ControllerLayout for NintendoLayout {
                 state.mouse_trackpad_prev = None;
                 vec![]
             }
+
+            DeviceOutput::Gyro(_, _, _) => vec![],
+            DeviceOutput::Accel(_, _, _) => vec![],
         }
     }
 }
@@ -544,6 +553,7 @@ impl ControllerLayout for NintendoLayout {
 impl ControllerLayout for LizardLayout {
     fn map_device_output(
         input: DeviceOutput,
+        _time: u32,
         state: &mut LayoutState,
         device_properties: &DeviceProperties,
     ) -> Vec<MappedOutput> {
@@ -659,6 +669,9 @@ impl ControllerLayout for LizardLayout {
                 state.mouse_trackpad_prev = None;
                 vec![]
             }
+
+            DeviceOutput::Gyro(_, _, _) => vec![],
+            DeviceOutput::Accel(_, _, _) => vec![],
         }
     }
 }
@@ -716,6 +729,7 @@ fn mode_layout_button_map(
 
 fn event_map(
     input: DeviceOutput,
+    time: u32,
     state: &mut LayoutState,
     device_properties: &DeviceProperties,
 ) -> Vec<MappedOutput> {
@@ -724,11 +738,13 @@ fn event_map(
     }
 
     match device_properties.layout {
-        DeviceLayout::Xbox => XboxLayout::map_device_output(input, state, device_properties),
+        DeviceLayout::Xbox => XboxLayout::map_device_output(input, time, state, device_properties),
         DeviceLayout::Nintendo => {
-            NintendoLayout::map_device_output(input, state, device_properties)
+            NintendoLayout::map_device_output(input, time, state, device_properties)
         }
-        DeviceLayout::Lizard => LizardLayout::map_device_output(input, state, device_properties),
+        DeviceLayout::Lizard => {
+            LizardLayout::map_device_output(input, time, state, device_properties)
+        }
     }
 }
 
@@ -780,6 +796,9 @@ fn update_bitmap(bitmap: &mut DeviceButton, input: DeviceOutput) {
         DeviceOutput::RightTrackpad(_, _, _) => {}
         DeviceOutput::RightTrackpadClick(p) => bitmap.set(DeviceButton::RightTrackpadClick, p),
         DeviceOutput::RightTrackpadTouch(p) => bitmap.set(DeviceButton::RightTrackpadTouch, p),
+
+        DeviceOutput::Gyro(_, _, _) => {}
+        DeviceOutput::Accel(_, _, _) => {}
     }
 }
 
@@ -836,8 +855,8 @@ fn controller_handler(
 
                 let props = device.device_properties();
                 if let Some(virt_controller) = &mut virt_controller {
-                    for input_event in input_events {
-                        for event in event_map(input_event, &mut state, &props) {
+                    for (input_event, time) in input_events {
+                        for event in event_map(input_event, time, &mut state, &props) {
                             match event {
                                 MappedOutput::Controller(button_event) => {
                                     if let Err(e) = virt_controller.send_input(button_event) {

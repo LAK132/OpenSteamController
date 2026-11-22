@@ -30,10 +30,16 @@ const RESPONSE_CONNECTION_EVENT: u8 = 0x79;
 const BUTTON_LOCATION: Range<usize> = 2..6;
 /// Range in the response containing the triggers
 const TRIGGER_LOCATION: Range<usize> = 6..10;
-/// Range in the response containing the left yoystick
+/// Range in the response containing the joysticks
 const JOYSTICK_LOCATION: Range<usize> = 10..18;
 /// Range in the response containing the trackpads (x y pressure)
 const TRACKPAD_LOCATION: Range<usize> = 18..30;
+/// Range in the response containing the event time
+const TIME_LOCATION: Range<usize> = 30..34;
+/// Range in the response containing the accelerometer (sway-right surge-forward heave-up)
+const ACCEL_LOCATION: Range<usize> = 34..40;
+/// Range in the response containing the gyroscope (pitch-back roll-right yaw-left)
+const GYRO_LOCATION: Range<usize> = 40..46;
 /// Max value of an analog input
 const ANALOG_MAX: f32 = 0b01111111_11111111 as f32;
 
@@ -211,7 +217,7 @@ impl SteamController {
         ]
     }
 
-    /// Converts four bytes of data into controller input events for the left and right trackpad
+    /// Converts six bytes of data into controller input events for the left and right trackpad
     fn handle_trackpads(&mut self, response: [u8; 12]) -> Vec<DeviceEvent> {
         let (left_x, left_y, left_force) =
             Self::convert_analog_3d(response[0..6].try_into().unwrap());
@@ -221,6 +227,22 @@ impl SteamController {
             DeviceEvent::ButtonPressed(DeviceOutput::LeftTrackpad(left_x, left_y, left_force)),
             DeviceEvent::ButtonPressed(DeviceOutput::RightTrackpad(right_x, right_y, right_force)),
         ]
+    }
+
+    /// Converts six bytes of data into controller input events for the accelerometer
+    fn handle_accel(&mut self, response: [u8; 6]) -> Vec<DeviceEvent> {
+        let (sway, surge, heave) = Self::convert_analog_3d(response);
+        vec![DeviceEvent::ButtonPressed(DeviceOutput::Accel(
+            surge, sway, heave,
+        ))]
+    }
+
+    /// Converts six bytes of data into controller input events for the gyroscope
+    fn handle_gyro(&mut self, response: [u8; 6]) -> Vec<DeviceEvent> {
+        let (pitch, roll, yaw) = Self::convert_analog_3d(response);
+        vec![DeviceEvent::ButtonPressed(DeviceOutput::Gyro(
+            roll, pitch, yaw,
+        ))]
     }
 
     fn handle_status(response: &[u8; 16]) -> Vec<DeviceEvent> {
@@ -283,8 +305,12 @@ impl Device for SteamController {
         None
     }
 
-    fn get_event_from_device_response(&mut self, response: &[u8]) -> Option<Vec<DeviceEvent>> {
+    fn get_event_from_device_response(
+        &mut self,
+        response: &[u8],
+    ) -> Option<(Vec<DeviceEvent>, u32)> {
         let mut events = vec![];
+        let mut time = 0;
         match response[0] {
             RESPONSE_STATUS_EVENT => {
                 events.append(&mut SteamController::handle_status(
@@ -292,6 +318,7 @@ impl Device for SteamController {
                 ));
             }
             respone if RESPONSE_INPUT_EVENT.contains(&respone) => {
+                time = u32::from_le_bytes(response[TIME_LOCATION].try_into().unwrap());
                 events.append(
                     &mut self.handle_buttons(response[BUTTON_LOCATION].try_into().unwrap()),
                 );
@@ -308,6 +335,8 @@ impl Device for SteamController {
                 events.append(
                     &mut self.handle_trackpads(response[TRACKPAD_LOCATION].try_into().unwrap()),
                 );
+                events.append(&mut self.handle_accel(response[ACCEL_LOCATION].try_into().unwrap()));
+                events.append(&mut self.handle_gyro(response[GYRO_LOCATION].try_into().unwrap()));
             }
             RESPONSE_CONNECTION_EVENT => {
                 if let Some(event) = SteamController::handle_connection(response[1]) {
@@ -322,7 +351,7 @@ impl Device for SteamController {
         if events.is_empty() {
             None
         } else {
-            Some(events)
+            Some((events, time))
         }
     }
 
@@ -395,7 +424,7 @@ impl Device for SteamController {
         true
     }
 
-    fn active_refresh_state(&mut self) -> Result<Vec<DeviceOutput>, super::DeviceError> {
+    fn active_refresh_state(&mut self) -> Result<Vec<(DeviceOutput, u32)>, super::DeviceError> {
         self.get_device_state()
             .write_hid_report(&SteamController::get_disable_lizard_mode_packet())?;
         Ok(Vec::new())
