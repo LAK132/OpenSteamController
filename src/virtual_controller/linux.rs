@@ -2,7 +2,7 @@ use std::io;
 use std::ops::Neg;
 
 use crate::debug_println;
-use crate::virtual_controller::{AbstractVirtualController, ControllerInput};
+use crate::virtual_controller::{AbstractVirtualController, ControllerInput, ControllerOutput};
 use evdev::uinput::VirtualDevice;
 use evdev::{
     AbsInfo, AbsoluteAxisCode, AttributeSet, BusType, EventType, InputEvent, InputId, KeyCode,
@@ -59,7 +59,7 @@ fn map_digital_controller_input(
         (_, ControllerInput::Start(pressed)) => (KeyCode::BTN_START, pressed),
         (_, ControllerInput::Select(pressed)) => (KeyCode::BTN_SELECT, pressed),
         (false, ControllerInput::Mode(pressed)) => (KeyCode::BTN_MODE, pressed),
-        (false, ControllerInput::Menu(pressed)) => return None,
+        (false, ControllerInput::Menu(_)) => return None,
         // (false, ControllerInput::Menu(pressed)) => (KeyCode::BTN_MODE, pressed),
         (_, ControllerInput::LeftBumper(pressed)) => (KeyCode::BTN_TL, pressed),
         (_, ControllerInput::LeftTriggerClick(pressed)) => (KeyCode::BTN_TL2, pressed),
@@ -101,6 +101,7 @@ pub struct VirtualController {
     xinput_mode: bool,
     controller: VirtualDevice,
     mouse: VirtualDevice,
+    force_feedback_events: Vec<ControllerOutput>,
     mouse_error: (f32, f32),
     wheel_error: (f32, f32),
 }
@@ -225,6 +226,7 @@ impl VirtualController {
             xinput_mode,
             controller,
             mouse,
+            force_feedback_events: Vec::new(),
             mouse_error: (0.0, 0.0),
             wheel_error: (0.0, 0.0),
         })
@@ -416,5 +418,9 @@ impl AbstractVirtualController for VirtualController {
         self.controller.emit(&cevents)?;
         self.mouse.emit(&mevents)?;
         Ok(())
+    }
+
+    fn recv_output(&mut self) -> anyhow::Result<Vec<ControllerOutput>> {
+        Ok(self.force_feedback_events.drain(..).collect())
     }
 }
