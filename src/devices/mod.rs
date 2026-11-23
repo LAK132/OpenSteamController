@@ -6,7 +6,7 @@ use hidapi::{HidApi, HidDevice, HidError};
 use std::{
     collections::HashSet,
     fmt::{Debug, Display},
-    time::Duration,
+    time::{Duration, Instant},
 };
 use thistermination::TerminationFull;
 
@@ -49,13 +49,13 @@ impl Controller {
         }
     }
 
-    pub fn active_refresh_state(&mut self) -> Result<Vec<(DeviceOutput, u32)>, DeviceError> {
+    pub fn active_refresh_state(&mut self) -> Result<Vec<(DeviceOutput, Instant)>, DeviceError> {
         match self {
             Controller::Hid(device) => device.active_refresh_state(),
         }
     }
 
-    pub fn passive_refresh_state(&mut self) -> Result<Vec<(DeviceOutput, u32)>, DeviceError> {
+    pub fn passive_refresh_state(&mut self) -> Result<Vec<(DeviceOutput, Instant)>, DeviceError> {
         match self {
             Controller::Hid(device) => device.passive_refresh_state(),
         }
@@ -737,10 +737,7 @@ pub trait Device {
     fn get_charging_packet(&self) -> Option<Vec<u8>>;
     fn get_battery_packet(&self) -> Option<Vec<u8>>;
     fn get_wireless_connected_status_packet(&self) -> Option<Vec<u8>>;
-    fn get_event_from_device_response(
-        &mut self,
-        response: &[u8],
-    ) -> Option<(Vec<DeviceEvent>, u32)>;
+    fn get_event_from_device_response(&mut self, response: &[u8]) -> Option<Vec<DeviceEvent>>;
     fn get_device_state(&self) -> &DeviceState;
     fn get_device_state_mut(&mut self) -> &mut DeviceState;
     fn prepare_write(&mut self) {}
@@ -751,7 +748,7 @@ pub trait Device {
     /// whether the app should periodically listen for packets from the controllers
     fn allow_passive_refresh(&mut self) -> bool;
 
-    fn wait_for_updates(&mut self, duration: Duration) -> Option<(Vec<DeviceEvent>, u32)> {
+    fn wait_for_updates(&mut self, duration: Duration) -> Option<(Vec<DeviceEvent>, Instant)> {
         let mut buf = self.get_response_buffer();
         let res = self
             .get_device_state()
@@ -763,7 +760,9 @@ pub trait Device {
             return None;
         }
 
+        let now = Instant::now();
         self.get_event_from_device_response(&buf)
+            .map(|events| (events, now))
     }
 
     fn get_query_packets(&self) -> Vec<Vec<u8>> {
@@ -778,10 +777,10 @@ pub trait Device {
     }
 
     /// Refreshes the state by querying all available information
-    fn active_refresh_state(&mut self) -> Result<Vec<(DeviceOutput, u32)>, DeviceError> {
+    fn active_refresh_state(&mut self) -> Result<Vec<(DeviceOutput, Instant)>, DeviceError> {
         let packets = self.get_query_packets();
 
-        let mut pressed_buttons: Vec<(DeviceOutput, u32)> = vec![];
+        let mut pressed_buttons: Vec<(DeviceOutput, Instant)> = vec![];
         let mut responded = false;
         for packet in packets.into_iter() {
             self.prepare_write();
@@ -814,7 +813,7 @@ pub trait Device {
 
     /// Refreshes the state by listening for events
     /// Only the battery level is actively queried because it is not communicated by the device on its own
-    fn passive_refresh_state(&mut self) -> Result<Vec<(DeviceOutput, u32)>, DeviceError> {
+    fn passive_refresh_state(&mut self) -> Result<Vec<(DeviceOutput, Instant)>, DeviceError> {
         let mut pressed_buttons = vec![];
         if self.allow_passive_refresh() {
             if let Some((events, time)) = self.wait_for_updates(PASSIVE_REFRESH_TIME_OUT) {

@@ -5,6 +5,7 @@
 
 use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
+use std::time::Instant;
 
 use open_steam_controller::debug_println;
 use open_steam_controller::devices::{
@@ -176,7 +177,7 @@ struct LayoutState {
 trait ControllerLayout {
     fn map_device_output(
         input: DeviceOutput,
-        time: u32,
+        time: Instant,
         state: &mut LayoutState,
         device_properties: &DeviceProperties,
     ) -> Vec<MappedOutput>;
@@ -289,7 +290,7 @@ struct LizardLayout {}
 impl ControllerLayout for XboxLayout {
     fn map_device_output(
         input: DeviceOutput,
-        _time: u32,
+        _time: Instant,
         state: &mut LayoutState,
         _device_properties: &DeviceProperties,
     ) -> Vec<MappedOutput> {
@@ -421,7 +422,7 @@ impl ControllerLayout for XboxLayout {
 impl ControllerLayout for NintendoLayout {
     fn map_device_output(
         input: DeviceOutput,
-        _time: u32,
+        _time: Instant,
         state: &mut LayoutState,
         _device_properties: &DeviceProperties,
     ) -> Vec<MappedOutput> {
@@ -553,7 +554,7 @@ impl ControllerLayout for NintendoLayout {
 impl ControllerLayout for LizardLayout {
     fn map_device_output(
         input: DeviceOutput,
-        _time: u32,
+        _time: Instant,
         state: &mut LayoutState,
         device_properties: &DeviceProperties,
     ) -> Vec<MappedOutput> {
@@ -729,7 +730,7 @@ fn mode_layout_button_map(
 
 fn event_map(
     input: DeviceOutput,
-    time: u32,
+    time: Instant,
     state: &mut LayoutState,
     device_properties: &DeviceProperties,
 ) -> Vec<MappedOutput> {
@@ -859,7 +860,7 @@ fn controller_handler(
                         for event in event_map(input_event, time, &mut state, &props) {
                             match event {
                                 MappedOutput::Controller(button_event) => {
-                                    if let Err(e) = virt_controller.send_input(button_event) {
+                                    if let Err(e) = virt_controller.send_input(button_event, time) {
                                         debug_println!("{e}");
                                     }
                                 }

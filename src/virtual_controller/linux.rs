@@ -1,5 +1,6 @@
 use std::io;
 use std::ops::Neg;
+use std::time::Instant;
 
 use crate::debug_println;
 use crate::virtual_controller::{AbstractVirtualController, ControllerInput, ControllerOutput};
@@ -111,6 +112,14 @@ const STICK_MIN: i32 = -32768;
 const STICK_MAX: i32 = 32767;
 /// Trigger pressed down
 const TRIGGER_MAX: i32 = 255;
+///
+const GYRO_MIN: i32 = -32768;
+///
+const GYRO_MAX: i32 = 32767;
+///
+const ACCEL_MIN: i32 = -32768;
+///
+const ACCEL_MAX: i32 = 32767;
 /// When using REL_(H)WHEEL_HI_RES, 120 is a complete line
 const SMOOTH_WHEEL_MULTIPLIER: i32 = 120;
 
@@ -258,7 +267,7 @@ impl VirtualController {
 }
 
 impl AbstractVirtualController for VirtualController {
-    fn send_input(&mut self, input: ControllerInput) -> anyhow::Result<()> {
+    fn send_input(&mut self, input: ControllerInput, _time: Instant) -> anyhow::Result<()> {
         let mut cevents = Vec::new();
         let mut mevents = Vec::new();
         match input {
@@ -415,6 +424,46 @@ impl AbstractVirtualController for VirtualController {
                     RelativeAxisCode::REL_Y.0,
                     -y,
                 ));
+            }
+
+            ControllerInput::Gyro(_x, _y, _z) => {
+                // Input:        right handed pitch, roll, yaw
+                // Output (DS4): right handed pitch yaw, roll
+                // cevents.push(InputEvent::new(
+                //     EventType::ABSOLUTE.0,
+                //     AbsoluteAxisCode::ABS_RX.0,
+                //     x as i32,
+                // ));
+                // cevents.push(InputEvent::new(
+                //     EventType::ABSOLUTE.0,
+                //     AbsoluteAxisCode::ABS_RY.0,
+                //     z as i32,
+                // ));
+                // cevents.push(InputEvent::new(
+                //     EventType::ABSOLUTE.0,
+                //     AbsoluteAxisCode::ABS_RZ.0,
+                //     y as i32,
+                // ));
+            }
+
+            ControllerInput::Accel(_x, _y, _z) => {
+                // Input:        right handed sway, surge, heave
+                // Output (DS4): right handed sway, heave, surge
+                // cevents.push(InputEvent::new(
+                //     EventType::ABSOLUTE.0,
+                //     AbsoluteAxisCode::ABS_X.0,
+                //     x as i32,
+                // ));
+                // cevents.push(InputEvent::new(
+                //     EventType::ABSOLUTE.0,
+                //     AbsoluteAxisCode::ABS_Y.0,
+                //     z as i32,
+                // ));
+                // cevents.push(InputEvent::new(
+                //     EventType::ABSOLUTE.0,
+                //     AbsoluteAxisCode::ABS_Z.0,
+                //     y as i32,
+                // ));
             }
 
             digital_input => {
