@@ -375,6 +375,7 @@ impl ControllerLayout for XboxLayout {
             DeviceOutput::LeftTrackpadClick(_) => vec![],
             DeviceOutput::LeftTrackpadTouch(_) => {
                 state.wheel_trackpad_prev = None;
+                state.wheel_error = (0.0, 0.0);
                 vec![]
             }
 
@@ -397,6 +398,8 @@ impl ControllerLayout for XboxLayout {
                     },
                 ),
             DeviceOutput::RightTrackpadClick(p) => {
+                state.mouse_trackpad_prev = None;
+                state.mouse_error = (0.0, 0.0);
                 vec![
                     MappedOutput::Controller(ControllerInput::LeftMouse(p)),
                     MappedOutput::Device(DeviceCommand::Haptic(HapticEvent {
@@ -410,6 +413,7 @@ impl ControllerLayout for XboxLayout {
             }
             DeviceOutput::RightTrackpadTouch(_) => {
                 state.mouse_trackpad_prev = None;
+                state.mouse_error = (0.0, 0.0);
                 vec![]
             }
 
@@ -507,6 +511,7 @@ impl ControllerLayout for NintendoLayout {
             DeviceOutput::LeftTrackpadClick(_) => vec![],
             DeviceOutput::LeftTrackpadTouch(_) => {
                 state.wheel_trackpad_prev = None;
+                state.wheel_error = (0.0, 0.0);
                 vec![]
             }
 
@@ -529,6 +534,8 @@ impl ControllerLayout for NintendoLayout {
                     },
                 ),
             DeviceOutput::RightTrackpadClick(p) => {
+                state.mouse_trackpad_prev = None;
+                state.mouse_error = (0.0, 0.0);
                 vec![
                     MappedOutput::Controller(ControllerInput::LeftMouse(p)),
                     MappedOutput::Device(DeviceCommand::Haptic(HapticEvent {
@@ -542,6 +549,7 @@ impl ControllerLayout for NintendoLayout {
             }
             DeviceOutput::RightTrackpadTouch(_) => {
                 state.mouse_trackpad_prev = None;
+                state.mouse_error = (0.0, 0.0);
                 vec![]
             }
 
@@ -633,6 +641,7 @@ impl ControllerLayout for LizardLayout {
             DeviceOutput::LeftTrackpadClick(_) => vec![],
             DeviceOutput::LeftTrackpadTouch(_) => {
                 state.wheel_trackpad_prev = None;
+                state.wheel_error = (0.0, 0.0);
                 vec![]
             }
 
@@ -655,6 +664,8 @@ impl ControllerLayout for LizardLayout {
                     },
                 ),
             DeviceOutput::RightTrackpadClick(p) => {
+                state.mouse_trackpad_prev = None;
+                state.mouse_error = (0.0, 0.0);
                 vec![
                     MappedOutput::Controller(ControllerInput::LeftMouse(p)),
                     MappedOutput::Device(DeviceCommand::Haptic(HapticEvent {
@@ -668,6 +679,7 @@ impl ControllerLayout for LizardLayout {
             }
             DeviceOutput::RightTrackpadTouch(_) => {
                 state.mouse_trackpad_prev = None;
+                state.mouse_error = (0.0, 0.0);
                 vec![]
             }
 
