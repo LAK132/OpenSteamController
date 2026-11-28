@@ -169,11 +169,113 @@ impl WheelHandler {
     }
 }
 
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+pub enum AnalogHatX {
+    Left,
+    Right,
+}
+
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+pub enum AnalogHatY {
+    Up,
+    Down,
+}
+
+#[derive(Debug, Clone)]
+pub struct AnalogHatHandler {
+    prev_x: Option<AnalogHatX>,
+    prev_y: Option<AnalogHatY>,
+}
+
+impl AnalogHatHandler {
+    pub fn new() -> Self {
+        AnalogHatHandler {
+            prev_x: None,
+            prev_y: None,
+        }
+    }
+
+    pub fn way4<O, X: Fn(AnalogHatX, bool) -> O, Y: Fn(AnalogHatY, bool) -> O>(
+        &mut self,
+        (x, y): (f32, f32),
+        debounce_threshold: f32,
+        func_x: X,
+        func_y: Y,
+    ) -> Vec<O> {
+        let min = 0.5 - debounce_threshold;
+        let max = 0.5 + debounce_threshold;
+
+        let mut result = vec![];
+
+        if let Some(prev_x) = self.prev_x {
+            match prev_x {
+                AnalogHatX::Left => {
+                    if x > -min {
+                        result.push(func_x(prev_x, false));
+                        self.prev_x = None;
+                    }
+                }
+                AnalogHatX::Right => {
+                    if x < min {
+                        result.push(func_x(prev_x, false));
+                        self.prev_x = None;
+                    }
+                }
+            }
+        }
+
+        if let None = self.prev_x {
+            if x < -max {
+                self.prev_x = Some(AnalogHatX::Left);
+            } else if x > max {
+                self.prev_x = Some(AnalogHatX::Right);
+            }
+
+            if let Some(prev_x) = self.prev_x {
+                result.push(func_x(prev_x, true));
+            }
+        }
+
+        if let Some(prev_y) = self.prev_y {
+            match prev_y {
+                AnalogHatY::Down => {
+                    if y > -min {
+                        result.push(func_y(prev_y, false));
+                        self.prev_y = None;
+                    }
+                }
+                AnalogHatY::Up => {
+                    if y < min {
+                        result.push(func_y(prev_y, false));
+                        self.prev_y = None;
+                    }
+                }
+            }
+        }
+
+        if let None = self.prev_y {
+            if y < -max {
+                self.prev_y = Some(AnalogHatY::Down);
+            } else if y > max {
+                self.prev_y = Some(AnalogHatY::Up);
+            }
+
+            if let Some(prev_y) = self.prev_y {
+                result.push(func_y(prev_y, true));
+            }
+        }
+
+        result
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct LayoutState {
     pub buttons_prev: DeviceButton,
     pub mouse: MouseHandler,
     pub wheel: WheelHandler,
+    pub left_joy_hat: AnalogHatHandler,
+    pub right_joy_hat: AnalogHatHandler,
 }
 
 impl LayoutState {
@@ -182,6 +284,8 @@ impl LayoutState {
             buttons_prev: DeviceButton::from_bits_truncate(0),
             mouse: MouseHandler::new(),
             wheel: WheelHandler::new(),
+            left_joy_hat: AnalogHatHandler::new(),
+            right_joy_hat: AnalogHatHandler::new(),
         }
     }
 

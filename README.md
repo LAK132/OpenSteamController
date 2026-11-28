@@ -71,12 +71,51 @@ Options:
 ```
 
 | Emulated controller | `<CONTROLLER>` | Windows | Linux | D-pad hat | D-pad buttons | Trigger buttons | Paddles |
-|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|
+|:---|:---|:---:|:---:|:---:|:---:|:---:|:---:|
 | Default | | Xbox 360 | Xbox One Elite |
 | Xbox 360 | `x360` or `xbox360` | &check; | &check; | &check; | &cross; | &cross; | &cross; |
 | Xbox One Elite | `xbe` or `xboxelite` | &cross; | &check; | &check; | &check; | &check; | &check; |
 | DualShock 4 | `ds4` or `dualshock4` | &cross; | &check; | &check; | &check; | &check; | &cross; |
 | DualSense Edge | `dse` or `dualsenseedge` | &cross; | &check; | &check; | &check; | &check; | &check; |
+
+| Steam Controller | Xbox layout | Nintendo layout | Lizard layout |
+|:---|:---|:---|:---|
+| A | A | B | Enter |
+| B | B | A | Esc |
+| X | X | Y | Backspace |
+| Y | Y | X | |
+| Dpad up | Dpad up | Dpad up | Arrow up |
+| Dpad down | Dpad down | Dpad down | Arrow down |
+| Dpad left | Dpad left | Dpad left | Arrow left |
+| Dpad right | Dpad right | Dpad right | Arrow right |
+| Start/Menu | Menu | Start/+ | Meta/Win |
+| Select/View | View | Select/- | Tab |
+| L stick | L stick | L stick | Smooth scroll |
+| R stick | R stick | R stick | Mouse |
+| LT | L2 (A) | L2 (A) | |
+| L1 | L1 | L1 | Ctrl |
+| L2 | L2 (D) | L2 (D) | RMB |
+| L3 | L3 | L3 | Play/Pause |
+| L4 | L4 | L4 | |
+| L5 | L5 | L5 | Back |
+| RT | R2 (A) | R2 (A) | |
+| R1 | R1 | R1 | Alt |
+| R2 | R2 (D) | R2 (D) | LMB |
+| R3 | R3 | R3 | |
+| R4 | R4 | R4 | MMB |
+| R5 | R5 | R5 | Forward |
+| L pad | Scroll | Scroll | Scroll |
+| R pad | Mouse | Mouse | Mouse |
+| R pad click | LMB | LMB | LMB |
+| Steam | Guide | Home | |
+| Steam &rightarrow; L stick up | | | Volume up |
+| Steam &rightarrow; L stick down | | | Volume down |
+| Steam &rightarrow; L stick left | | | Prev track |
+| Steam &rightarrow; L stick right | | | Next track |
+| Steam &rightarrow; A | &rightarrow; Nintendo (toggle) | &rightarrow; Xbox (toggle) | &rightarrow; Xbox/Nintendo (toggle) |
+| Steam &rightarrow; B | &rightarrow; Lizard (toggle) | &rightarrow; Lizard (toggle) | &rightarrow; Xbox/Nintendo (toggle) |
+| Steam &rightarrow; Y | Power off | Power off | Power off |
+| Quick Access Menu | &rightarrow; Lizard (hold) | &rightarrow; Lizard (hold) | &rightarrow; Xbox/Nintendo |
 
 ### 1. Requirements
 

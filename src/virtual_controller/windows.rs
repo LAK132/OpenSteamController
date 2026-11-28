@@ -103,6 +103,8 @@ impl VirtualController {
 impl AbstractVirtualController for VirtualController {
     fn send_input(&mut self, input: ControllerInput) -> anyhow::Result<()> {
         match input {
+            ControllerInput::Ignore => {}
+
             ControllerInput::RightJoyStick(x, y) => {
                 self.state.thumb_rx = if x.is_sign_positive() {
                     x * STICK_MAX as f32

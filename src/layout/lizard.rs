@@ -1,5 +1,7 @@
-use crate::devices::{DeviceCommand, DeviceOutput, DeviceProperties, HapticEvent, HapticSide};
-use crate::layout::{ControllerLayout, LayoutState, MappedOutput};
+use crate::devices::{
+    DeviceButton, DeviceCommand, DeviceOutput, DeviceProperties, HapticEvent, HapticSide,
+};
+use crate::layout::{AnalogHatX, AnalogHatY, ControllerLayout, LayoutState, MappedOutput};
 use crate::virtual_controller::ControllerInput;
 
 pub struct LizardLayout {}
@@ -13,7 +15,7 @@ impl ControllerLayout for LizardLayout {
         match input {
             DeviceOutput::A(p) => vec![MappedOutput::Controller(ControllerInput::EnterKey(p))],
             DeviceOutput::B(p) => vec![MappedOutput::Controller(ControllerInput::EscKey(p))],
-            DeviceOutput::X(_) => vec![],
+            DeviceOutput::X(p) => vec![MappedOutput::Controller(ControllerInput::BackspaceKey(p))],
             DeviceOutput::Y(_) => vec![],
 
             DeviceOutput::Up(p) => vec![MappedOutput::Controller(ControllerInput::UpKey(p))],
@@ -21,8 +23,8 @@ impl ControllerLayout for LizardLayout {
             DeviceOutput::Left(p) => vec![MappedOutput::Controller(ControllerInput::LeftKey(p))],
             DeviceOutput::Right(p) => vec![MappedOutput::Controller(ControllerInput::RightKey(p))],
 
-            DeviceOutput::Menu(_) => vec![],
-            DeviceOutput::View(_) => vec![],
+            DeviceOutput::Menu(p) => vec![MappedOutput::Controller(ControllerInput::MetaKey(p))],
+            DeviceOutput::View(p) => vec![MappedOutput::Controller(ControllerInput::TabKey(p))],
             DeviceOutput::Steam(_) => vec![],
             DeviceOutput::QuickAccessMenu(p) => {
                 if !p {
@@ -34,10 +36,35 @@ impl ControllerLayout for LizardLayout {
                 }
             }
 
-            DeviceOutput::LeftJoyStick(x, y) => state.wheel.joystick((x, y)).map_or_else(
-                || vec![],
-                |(x, y)| vec![MappedOutput::Controller(ControllerInput::SmoothWheel(x, y))],
-            ),
+            DeviceOutput::LeftJoyStick(x, y) => {
+                if state.buttons_prev.contains(DeviceButton::Steam) {
+                    state.left_joy_hat.way4(
+                        (x, y),
+                        0.05,
+                        |x, p| match x {
+                            AnalogHatX::Left => {
+                                MappedOutput::Controller(ControllerInput::MediaPrev(p))
+                            }
+                            AnalogHatX::Right => {
+                                MappedOutput::Controller(ControllerInput::MediaNext(p))
+                            }
+                        },
+                        |y, p| match y {
+                            AnalogHatY::Up => {
+                                MappedOutput::Controller(ControllerInput::VolumeUp(p))
+                            }
+                            AnalogHatY::Down => {
+                                MappedOutput::Controller(ControllerInput::VolumeDown(p))
+                            }
+                        },
+                    )
+                } else {
+                    state.wheel.joystick((x, y)).map_or_else(
+                        || vec![],
+                        |(x, y)| vec![MappedOutput::Controller(ControllerInput::SmoothWheel(x, y))],
+                    )
+                }
+            }
             DeviceOutput::LeftJoyStickTouch(_) => vec![],
 
             DeviceOutput::RightJoyStick(x, y) => state.mouse.joystick((x, y)).map_or_else(
@@ -46,20 +73,20 @@ impl ControllerLayout for LizardLayout {
             ),
             DeviceOutput::RightJoyStickTouch(_) => vec![],
 
-            DeviceOutput::L1(_) => vec![],
+            DeviceOutput::L1(p) => vec![MappedOutput::Controller(ControllerInput::CtrlKey(p))],
             DeviceOutput::L2(p) => vec![MappedOutput::Controller(ControllerInput::RightMouse(p))],
-            DeviceOutput::L3(_) => vec![],
+            DeviceOutput::L3(p) => vec![MappedOutput::Controller(ControllerInput::PlayPause(p))],
             DeviceOutput::L4(_) => vec![],
-            DeviceOutput::L5(_) => vec![],
+            DeviceOutput::L5(p) => vec![MappedOutput::Controller(ControllerInput::Back(p))],
 
             DeviceOutput::LeftTrigger(_) => vec![],
             DeviceOutput::LeftGripTouch(_) => vec![],
 
-            DeviceOutput::R1(_) => vec![],
+            DeviceOutput::R1(p) => vec![MappedOutput::Controller(ControllerInput::AltKey(p))],
             DeviceOutput::R2(p) => vec![MappedOutput::Controller(ControllerInput::LeftMouse(p))],
-            DeviceOutput::R3(p) => vec![MappedOutput::Controller(ControllerInput::MiddleMouse(p))],
-            DeviceOutput::R4(_) => vec![],
-            DeviceOutput::R5(_) => vec![],
+            DeviceOutput::R3(_) => vec![],
+            DeviceOutput::R4(p) => vec![MappedOutput::Controller(ControllerInput::MiddleMouse(p))],
+            DeviceOutput::R5(p) => vec![MappedOutput::Controller(ControllerInput::Forward(p))],
 
             DeviceOutput::RightTrigger(_) => vec![],
             DeviceOutput::RightGripTouch(_) => vec![],

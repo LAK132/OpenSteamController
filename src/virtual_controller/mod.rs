@@ -91,18 +91,31 @@ pub enum ControllerInput {
     LeftMouse(bool),
     MiddleMouse(bool),
     RightMouse(bool),
+    Back(bool),
+    Forward(bool),
 
     // Keyboard
-    EnterKey(bool),
-    EscKey(bool),
     CtrlKey(bool),
     ShiftKey(bool),
     AltKey(bool),
     MetaKey(bool),
+
+    EnterKey(bool),
+    BackspaceKey(bool),
+    EscKey(bool),
+    TabKey(bool),
+
     UpKey(bool),
     DownKey(bool),
     LeftKey(bool),
     RightKey(bool),
+
+    // Media
+    VolumeUp(bool),
+    VolumeDown(bool),
+    MediaNext(bool),
+    MediaPrev(bool),
+    PlayPause(bool),
 
     Ignore,
 }

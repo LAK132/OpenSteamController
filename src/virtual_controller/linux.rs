@@ -297,18 +297,29 @@ fn map_digital_mouse_input(input: ControllerInput) -> Option<(KeyCode, bool)> {
         ControllerInput::LeftMouse(pressed) => (KeyCode::BTN_LEFT, pressed),
         ControllerInput::MiddleMouse(pressed) => (KeyCode::BTN_MIDDLE, pressed),
         ControllerInput::RightMouse(pressed) => (KeyCode::BTN_RIGHT, pressed),
+        ControllerInput::Back(pressed) => (KeyCode::KEY_BACK, pressed),
+        ControllerInput::Forward(pressed) => (KeyCode::KEY_FORWARD, pressed),
 
-        ControllerInput::EnterKey(pressed) => (KeyCode::KEY_ENTER, pressed),
-        ControllerInput::EscKey(pressed) => (KeyCode::KEY_ESC, pressed),
         ControllerInput::CtrlKey(pressed) => (KeyCode::KEY_LEFTCTRL, pressed),
         ControllerInput::ShiftKey(pressed) => (KeyCode::KEY_LEFTSHIFT, pressed),
         ControllerInput::AltKey(pressed) => (KeyCode::KEY_LEFTALT, pressed),
         ControllerInput::MetaKey(pressed) => (KeyCode::KEY_LEFTMETA, pressed),
 
+        ControllerInput::EnterKey(pressed) => (KeyCode::KEY_ENTER, pressed),
+        ControllerInput::BackspaceKey(pressed) => (KeyCode::KEY_BACKSPACE, pressed),
+        ControllerInput::EscKey(pressed) => (KeyCode::KEY_ESC, pressed),
+        ControllerInput::TabKey(pressed) => (KeyCode::KEY_TAB, pressed),
+
         ControllerInput::UpKey(pressed) => (KeyCode::KEY_UP, pressed),
         ControllerInput::DownKey(pressed) => (KeyCode::KEY_DOWN, pressed),
         ControllerInput::LeftKey(pressed) => (KeyCode::KEY_LEFT, pressed),
         ControllerInput::RightKey(pressed) => (KeyCode::KEY_RIGHT, pressed),
+
+        ControllerInput::VolumeUp(pressed) => (KeyCode::KEY_VOLUMEUP, pressed),
+        ControllerInput::VolumeDown(pressed) => (KeyCode::KEY_VOLUMEDOWN, pressed),
+        ControllerInput::MediaNext(pressed) => (KeyCode::KEY_NEXTSONG, pressed),
+        ControllerInput::MediaPrev(pressed) => (KeyCode::KEY_PREVIOUSSONG, pressed),
+        ControllerInput::PlayPause(pressed) => (KeyCode::KEY_PLAYPAUSE, pressed),
 
         _ => return None,
     })
@@ -439,16 +450,29 @@ impl VirtualController {
         mouse_keys.insert(KeyCode::BTN_LEFT);
         mouse_keys.insert(KeyCode::BTN_MIDDLE);
         mouse_keys.insert(KeyCode::BTN_RIGHT);
-        mouse_keys.insert(KeyCode::KEY_ENTER);
-        mouse_keys.insert(KeyCode::KEY_ESC);
+        mouse_keys.insert(KeyCode::KEY_BACK);
+        mouse_keys.insert(KeyCode::KEY_FORWARD);
+
         mouse_keys.insert(KeyCode::KEY_LEFTCTRL);
         mouse_keys.insert(KeyCode::KEY_LEFTSHIFT);
         mouse_keys.insert(KeyCode::KEY_LEFTALT);
         mouse_keys.insert(KeyCode::KEY_LEFTMETA);
+
+        mouse_keys.insert(KeyCode::KEY_ENTER);
+        mouse_keys.insert(KeyCode::KEY_BACKSPACE);
+        mouse_keys.insert(KeyCode::KEY_ESC);
+        mouse_keys.insert(KeyCode::KEY_TAB);
+
         mouse_keys.insert(KeyCode::KEY_UP);
         mouse_keys.insert(KeyCode::KEY_DOWN);
         mouse_keys.insert(KeyCode::KEY_LEFT);
         mouse_keys.insert(KeyCode::KEY_RIGHT);
+
+        mouse_keys.insert(KeyCode::KEY_VOLUMEUP);
+        mouse_keys.insert(KeyCode::KEY_VOLUMEDOWN);
+        mouse_keys.insert(KeyCode::KEY_NEXTSONG);
+        mouse_keys.insert(KeyCode::KEY_PREVIOUSSONG);
+        mouse_keys.insert(KeyCode::KEY_PLAYPAUSE);
         let mut mouse_axes = AttributeSet::<RelativeAxisCode>::new();
         mouse_axes.insert(RelativeAxisCode::REL_X);
         mouse_axes.insert(RelativeAxisCode::REL_Y);
@@ -475,6 +499,8 @@ impl AbstractVirtualController for VirtualController {
         let mut cevents = Vec::new();
         let mut mevents = Vec::new();
         match input {
+            ControllerInput::Ignore => {}
+
             ControllerInput::Up(_) => {
                 let (axis, value) = map_absolute_controller_input(self.emulation, input).unwrap();
                 cevents.push(InputEvent::new(EventType::ABSOLUTE.0, axis.0, value));
