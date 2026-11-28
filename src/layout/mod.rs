@@ -19,7 +19,7 @@ const STICK_MOUSE_SPEED: f32 = 8.0;
 /// Joystick as mouse deadzone
 const STICK_MOUSE_DEADZONE: f32 = 0.025;
 /// Joystick as wheel speed multiplier
-const STICK_WHEEL_SPEED: f32 = 1.0;
+const STICK_WHEEL_SPEED: f32 = 0.5;
 /// Joystick as wheel deadzone
 const STICK_WHEEL_DEADZONE: f32 = STICK_MOUSE_DEADZONE;
 
@@ -162,8 +162,8 @@ impl WheelHandler {
             return None;
         }
 
-        let x = x2 * x.signum() * STICK_WHEEL_SPEED;
-        let y = y2 * y.signum() * STICK_WHEEL_SPEED;
+        let x = x2 * x * STICK_WHEEL_SPEED;
+        let y = y2 * y * STICK_WHEEL_SPEED;
 
         Some((x, y))
     }
