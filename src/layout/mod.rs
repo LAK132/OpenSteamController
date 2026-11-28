@@ -85,14 +85,14 @@ impl MouseHandler {
     }
 
     pub fn joystick(&mut self, (x, y): (f32, f32)) -> Option<(i32, i32)> {
-        let x2 = x * x;
-        let y2 = y * y;
-        if (x2 + y2) < STICK_MOUSE_DEADZONE {
+        let xy = (x * x) + (y * y);
+        if xy < STICK_MOUSE_DEADZONE {
             return None;
         }
+        let xy = xy.sqrt();
 
-        let x = x2 * x.signum() * STICK_MOUSE_SPEED;
-        let y = y2 * y.signum() * STICK_MOUSE_SPEED;
+        let x = xy * x * STICK_MOUSE_SPEED;
+        let y = xy * y * STICK_MOUSE_SPEED;
 
         let x = x + self.error.0;
         let x_out = x as i32;
